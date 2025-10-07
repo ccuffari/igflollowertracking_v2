@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disclaimer - Instagram Follower Tracker</title>
+    <meta name="description"
+        content="Disclaimer di Instagram Follower Tracker. Informazioni importanti sull'uso del servizio.">
+    <meta name="google-adsense-account" content="ca-pub-1948802026580753">
+    <link rel="stylesheet" href="general.css">
+    <link rel="stylesheet" href="footer.css">
+</head>
+
+<body>
+    <div class="app">
+        <div class="container">
+            <div class="panel">
+                <header>
+                    <h1>Disclaimer</h1>
+                    <p class="subtitle">Avvertenze legali importanti</p>
+                </header>
+
+                <main class="legal-content">
+                    <section>
+                        <h2>1. Nessuna Affiliazione</h2>
+                        <p>Instagram Follower Tracker non è affiliato, associato, autorizzato, endorsato da, o in alcun
+                            modo ufficialmente connesso con Instagram o Meta Platforms, Inc. Instagram è un marchio
+                            registrato di Meta Platforms, Inc.</p>
+                    </section>
+
+                    <section>
+                        <h2>2. Servizio "Così Com'è"</h2>
+                        <p>Il servizio è fornito "così com'è" e "come disponibile" senza alcuna garanzia, espressa o
+                            implicita. Non garantiamo che il servizio sia ininterrotto, tempestivo, sicuro o esente da
+                            errori.</p>
+                    </section>
+
+                    <section>
+                        <h2>3. Limitazione di Responsabilità</h2>
+                        <p>In nessun caso saremo responsabili per danni diretti, indiretti, incidentali, speciali,
+                            consequenziali o punitivi derivanti dall'uso o dall'incapacità di utilizzare il servizio.
+                        </p>
+                    </section>
+
+                    <section>
+                        <h2>4. Accuratezza dei Dati</h2>
+                        <p>Non garantiamo l'accuratezza, l'affidabilità o la completezza dei risultati forniti dal
+                            servizio. L'utente si assume tutti i rischi associati all'uso dei risultati.</p>
+                    </section>
+
+                    <section>
+                        <h2>5. Utilizzo Consentito</h2>
+                        <p>L'utente è responsabile di utilizzare il servizio in conformità con i Termini di Servizio di
+                            Instagram e tutte le leggi applicabili.</p>
+                    </section>
+
+                    <section>
+                        <h2>6. Modifiche al Servizio</h2>
+                        <p>Ci riserviamo il diritto di modificare o interrompere il servizio in qualsiasi momento senza
+                            preavviso.</p>
+                    </section>
+
+                    <section>
+                        <h2>7. Accettazione del Disclaimer</h2>
+                        <p>Utilizzando il servizio, accetti integralmente il presente disclaimer.</p>
+                    </section>
+                </main>
+
+                <div id="footer-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        fetch('footer.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('footer-container').innerHTML = data;
+            });
+    </script>
+</body>
+
+</html>
