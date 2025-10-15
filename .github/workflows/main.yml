@@ -1,8 +1,11 @@
-name: Deploy Firebase Hosting (service-account)
+name: Deploy Firebase Hosting (service-account, safe)
 
 on:
   push:
     branches: ["main"]
+
+env:
+  PROJECT_DIR: "."    # modifica se il tuo package.json / firebase.json è in una subfolder
 
 permissions:
   contents: read
@@ -19,25 +22,42 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Cache npm
+      - name: Detect files
+        id: detect
+        run: |
+          proj="${{ env.PROJECT_DIR }}"
+          has_pkg="false"
+          has_lock="false"
+          has_firebase="false"
+          if [ -f "${proj}/package.json" ]; then has_pkg="true"; fi
+          if [ -f "${proj}/package-lock.json" ]; then has_lock="true"; fi
+          if [ -f "${proj}/firebase.json" ]; then has_firebase="true"; fi
+          echo "has_package_json=$has_pkg" >> $GITHUB_OUTPUT
+          echo "has_package_lock=$has_lock" >> $GITHUB_OUTPUT
+          echo "has_firebase_json=$has_firebase" >> $GITHUB_OUTPUT
+
+      - name: Cache npm (only if package.json exists)
+        if: steps.detect.outputs.has_package_json == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/package.json') }}
+          key: ${{ runner.os }}-node-${{ hashFiles(format('{0}/package-lock.json', env.PROJECT_DIR)) }}-${{ hashFiles(format('{0}/package.json', env.PROJECT_DIR)) }}
           restore-keys: |
             ${{ runner.os }}-node-
 
       - name: Install dependencies (ci if lock present)
+        if: steps.detect.outputs.has_package_json == 'true'
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          if [ -f package-lock.json ]; then
-            echo "package-lock.json found. Running npm ci"
+          if [ "${{ steps.detect.outputs.has_package_lock }}" = "true" ]; then
             npm ci
           else
-            echo "No package-lock.json. Running npm install"
             npm install --no-audit --prefer-offline
           fi
 
       - name: Build (if present)
+        if: steps.detect.outputs.has_package_json == 'true'
+        working-directory: ${{ env.PROJECT_DIR }}
         run: npm run build --if-present
 
       - name: Authenticate to GCP
@@ -45,8 +65,4 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Deploy to Firebase Hosting
-        run: firebase deploy --only hosting
+      - name: Install Fi
