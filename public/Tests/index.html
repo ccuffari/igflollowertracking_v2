@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="it" itemscope itemtype="https://schema.org/WebApplication">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- 00-variables.css: variabili di tema globali (COLORI, SPACING, valori per ads) — deve essere il primo -->
+    <link rel="stylesheet" href="css/00-variables.css">
+    
+    <!-- 01-base.css: reset leggero e tipografia globale — definisce regole base riutilizzabili -->
+    <link rel="stylesheet" href="css/01-base.css">
+    
+    <!-- 02-layout.css: struttura principale (container, grid, panel) — layout desktop-first -->
+    <link rel="stylesheet" href="css/02-layout.css">
+    
+    <!-- 03-header-lead.css: header, logo, subtitle e callout/lead — layout header-specific -->
+    <link rel="stylesheet" href="css/03-header-lead.css">
+    
+    <!-- 04-components.css: componenti UI (dropzone, bottoni, cards) -->
+    <link rel="stylesheet" href="css/04-components.css">
+    
+    <!-- 05-ads.css: stili per gli slot pubblicitari e regole anti-overflow per iframe/ins -->
+    <link rel="stylesheet" href="css/05-ads.css">
+    
+    <!-- 06-results.css: lista utenti, righe risultati, layout azioni -->
+    <link rel="stylesheet" href="css/06-results.css">
+    
+    <!-- 07-ui-utilities.css: badge, dropdown, cookie banner, utilità e scrollbar -->
+    <link rel="stylesheet" href="css/07-ui-utilities.css">
+    
+    <!-- 08-responsive.css: media queries e fine-tuning per breakpoint — deve essere l'ultimo CSS caricato -->
+    <link rel="stylesheet" href="css/08-responsive.css">
+  <title>Instagram Follower Tracker - Analizza Chi Non Ti Segue Più | Tool Gratuito</title>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753"
+    crossorigin="anonymous"></script>
+</head>
+
+<body itemscope itemtype="https://schema.org/WebPage">
+  <div class="app">
+    <div class="container">
+      <div class="panel" role="main" itemprop="mainContentOfPage">
+        <header>
+          <div class="logo" aria-hidden="true">IG</div>
+          <div style="flex:1;min-width:0">
+            <h1 itemprop="headline">Instagram Follower Tracker</h1>
+            <p class="subtitle">Scopri chi non ti segue più su Instagram in modo sicuro e privato</p>
+          </div>
+        </header>
+
+        <div class="ad-container" id="ad-top" data-min-width="320" data-slot="1234567890">
+          <div class="ad-inner" id="ad-top-inner"></div>
+        </div>
+
+        <div class="content-section">
+          <h2>Analizza i Tuoi Follower Instagram in Modo Sicuro</h2>
+          <p>Il nostro <strong>Instagram Follower Tracker</strong> è lo strumento definitivo per scoprire chi non ti
+            segue più su Instagram. Con una tecnologia avanzata che rispetta la tua privacy, puoi finalmente avere il
+            controllo completo sulla tua cerchia di follower.</p>
+        </div>
+
+        <div class="grid">
+          <div>
+            <div class="content-section">
+              <h3>Inizia l'Analisi dei Tuoi Follower</h3>
+              <div class="drop" id="dropzone" style="border:1px dashed #ddd;padding:12px;border-radius:8px">
+                <div class="controls" style="display:flex;gap:8px;align-items:center">
+                  <label class="btn" for="zipfile" id="selectZipLabel"
+                    style="background:#0073e6;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer">📁 Seleziona
+                    ZIP</label>
+                  <input id="zipfile" type="file" accept=".zip" style="display:none" />
+                  <button id="resetBtn" class="btn ghost" style="padding:8px 12px;border-radius:6px">🔄 Reset</button>
+                  <div style="flex:1;min-width:10px"></div>
+                  <div class="pill small warning" id="statusPill">Caricamento libreria...</div>
+                </div>
+
+                <div class="small" style="margin-top:10px">
+                  <p>💡 <strong>Come funziona:</strong> Trascina qui il file ZIP oppure clicca "Seleziona ZIP".</p>
+                  <p>🔒 <strong>Privacy garantita:</strong> Tutta l'elaborazione avviene sul tuo dispositivo. I tuoi
+                    dati non vengono mai inviati o memorizzati altrove.</p>
+                </div>
+              </div>
+
+              <div class="results" id="results" aria-live="polite" style="margin-top:12px"></div>
+            </div>
+
+            <div class="ad-container ad-placeholder" id="ad-incontent" data-min-width="320" data-slot="1234567891">
+              <div class="ad-inner" id="ad-incontent-inner"></div>
+            </div>
+
+            <div class="content-section">
+              <h3>Perché Scegliere il Nostro Tracker?</h3>
+              <div class="features-grid"
+                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                <div class="feature-card">
+                  <div class="feature-icon">🔒</div>
+                  <h4>Privacy Totale</h4>
+                  <p class="small">I tuoi dati non lasciano mai il tuo dispositivo.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">⚡</div>
+                  <h4>Analisi Rapida</h4>
+                  <p class="small">Risultati immediati in pochi secondi.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">💰</div>
+                  <h4>Completamente Gratuito</h4>
+                  <p class="small">Nessun costo, nessuna registrazione.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">📊</div>
+                  <h4>Dati Precisi</h4>
+                  <p class="small">Analisi basata sui dati esportati.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <aside>
+            <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+              <div class="info-box">
+                <h3>📋 Istruzioni passo-passo</h3>
+                <ol class="small">
+                  <li>Esporta i tuoi dati da Instagram</li>
+                  <li>Riceverai un file ZIP via email o download</li>
+                  <li>Carica quel file ZIP qui</li>
+                  <li>Vedrai subito chi non ti segue più</li>
+                </ol>
+              </div>
+
+              <div class="ad-container ad-placeholder" id="ad-sidebar" data-min-width="160" data-slot="1234567892">
+                <div class="ad-inner" id="ad-sidebar-inner"></div>
+              </div>
+
+              <div class="dropdown">
+                <button class="dd-btn" id="ddToggle" aria-expanded="false">📥 Guida per esportare i dati da
+                  Instagram</button>
+                <div class="dd-panel" id="ddPanel"
+                  style="display:none;padding:8px;border:1px solid #eee;border-radius:6px">
+                  <div class="small">
+                    <p>Segui questi passaggi per scaricare i tuoi dati da Instagram:</p>
+                    <ol class="small">
+                      <li>Vai su Instagram → Il tuo profilo → Menu (tre linee)</li>
+                      <li>Seleziona "Impostazioni e privacy" → "Scarica le tue informazioni"</li>
+                      <li>Deseleziona tutto tranne "Followers e following"</li>
+                      <li>Clicca "Crea export" e attendi l'email</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="ad-container ad-placeholder" id="ad-footer" data-min-width="320" data-slot="1234567893">
+          <div class="ad-inner" id="ad-footer-inner"></div>
+        </div>
+
+        <div class="legal-section" style="margin-top:18px">
+          <h3>⚖️ Informativa Legale e Privacy</h3>
+          <p class="small"><strong>Disclaimer:</strong> Questo strumento è fornito "così com'è". Non siamo affiliati con
+            Instagram o Meta.</p>
+          <p class="small"><strong>Privacy:</strong> Questo sito non raccoglie, memorizza o trasmette i dati degli
+            utenti. L'elaborazione è client-side.</p>
+        </div>
+
+        <div id="footer-container" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="ads.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+
+</html>

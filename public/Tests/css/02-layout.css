@@ -1,0 +1,53 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+small,
+.small {
+    font-size: .8125rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+h1 {
+    font-size: clamp(1.125rem, 4vw, 1.5rem);
+    margin: 0;
+    font-weight: 700;
+}
+
+h2 {
+    font-size: 1.125rem;
+    margin: 0 0 .5rem;
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 1rem;
+    margin: 0 0 .5rem;
+    font-weight: 600;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

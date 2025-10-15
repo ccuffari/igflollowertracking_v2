@@ -1,0 +1,41 @@
+/* 02-header-lead.css */
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--ig-grad-mid), var(--ig-grad-end));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: .9375rem;
+    font-weight: 400;
+}
+
+.lead {
+    margin: 16px 0 20px;
+    color: var(--muted);
+    font-size: .9375rem;
+    line-height: 1.6;
+    padding: 16px;
+    background: var(--surface-alt);
+    border-radius: 10px;
+    border-left: 4px solid var(--info);
+}

@@ -1,0 +1,23 @@
+:root {
+    --ig-grad-start: #405de6;
+    --ig-grad-mid: #833ab4;
+    --ig-grad-end: #fd1d1d;
+    --primary: #405de6;
+
+    --card: #ffffff;
+    --surface: #ffffff;
+    --surface-alt: #f8fafc;
+    --bg: #f8fafc;
+
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+
+    --ad-reserve-height: 90px;
+    --ad-min-padding: 12px;
+}

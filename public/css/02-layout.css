@@ -1,0 +1,188 @@
+/* 02-layout.css
+   Layout principale, centratura, container con cornice sfumata e panel interno.
+   Uso: sostituire completamente questo file.
+*/
+
+/* WRAPPER PRINCIPALE */
+.app {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    /* centro verticale su desktop */
+    justify-content: center;
+    /* centro orizzontale */
+    padding: 32px 20px;
+    box-sizing: border-box;
+}
+
+/* CONTAINER + FRAME (two-pseudo technique) */
+.container {
+    position: relative;
+    width: 100%;
+    max-width: var(--max-page-width);
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: visible;
+    box-sizing: border-box;
+    --frame-thickness: 6px;
+    /* subtle horizontal shadow */
+    box-shadow: -6px 2px 18px rgba(0, 0, 0, 0.04), 6px 2px 18px rgba(0, 0, 0, 0.04);
+}
+
+/* full gradient frame */
+.container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg, var(--ig-grad-start), var(--ig-grad-mid), var(--ig-grad-end));
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* inner mask filling the content area so frame is visible on all sides */
+.container::after {
+    content: "";
+    position: absolute;
+    top: var(--frame-thickness);
+    right: var(--frame-thickness);
+    bottom: var(--frame-thickness);
+    left: var(--frame-thickness);
+    border-radius: calc(16px - var(--frame-thickness));
+    background: var(--card);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* PANEL: main content area sits above pseudo-elements */
+.container>.panel {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    border-radius: calc(16px - var(--frame-thickness));
+    background: transparent;
+    /* inner fill provided by ::after */
+    padding: 24px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+/* header layout */
+header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+/* GRID: mobile-first */
+.grid,
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: start;
+}
+
+/* ensure aside fits and doesn't overflow */
+aside {
+    min-width: 0;
+}
+
+/* make info-box, dropdown and sidebar elements flow within the grid */
+.info-box,
+.dd-panel,
+.ad-container,
+.feature-card {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* safeguard for ad containers */
+.ad-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ad-min-padding, 12px);
+    overflow: hidden;
+}
+
+/* DESKTOP: main + sidebar */
+@media (min-width: 1024px) {
+
+    .grid,
+    .main-grid {
+        grid-template-columns: 1fr 340px;
+        gap: 24px;
+    }
+
+    .app {
+        align-items: center;
+    }
+}
+
+/* MEDIUM: tablet */
+@media (max-width: 1023px) {
+    .app {
+        padding: 28px 18px;
+        align-items: flex-start;
+    }
+
+    .container {
+        max-width: calc(var(--max-page-width) - 80px);
+    }
+}
+
+/* SMALL */
+@media (max-width: 768px) {
+    .app {
+        padding: 20px 12px;
+        align-items: flex-start;
+    }
+
+    .container {
+        max-width: 920px;
+    }
+
+    .container>.panel {
+        padding: 20px;
+        border-radius: calc(16px - 4px);
+    }
+
+    .grid {
+        gap: 16px;
+    }
+}
+
+/* MOBILE */
+@media (max-width: 480px) {
+    .app {
+        padding: 12px 10px;
+        align-items: flex-start;
+        justify-content: center;
+    }
+
+    .container {
+        max-width: 100%;
+    }
+
+    .container>.panel {
+        padding: 16px 12px;
+        border-radius: calc(16px - 2px);
+    }
+
+    .grid {
+        gap: 12px;
+    }
+}
+
+/* small helper to keep elements from escaping */
+.clearfix::after {
+    content: "";
+    display: table;
+    clear: both;
+}

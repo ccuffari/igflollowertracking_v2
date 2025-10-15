@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://igfollowertracking.v2.com/sitemap.xml

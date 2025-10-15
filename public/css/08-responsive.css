@@ -1,0 +1,137 @@
+/* 08-responsive.css
+   Media queries e fine-tuning responsive.
+   Sostituisci questo file con il contenuto seguente.
+*/
+
+/* header adjustments */
+@media (max-width: 1023px) {
+    header {
+        align-items: center;
+        text-align: center;
+    }
+
+    .features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .app {
+        padding: 16px 12px;
+        align-items: flex-start;
+    }
+
+    header {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+
+    .logo {
+        width: 48px;
+        height: 48px;
+        font-size: 1.125rem;
+    }
+
+    h1 {
+        font-size: 1.25rem;
+    }
+
+    .features {
+        grid-template-columns: 1fr;
+    }
+
+    .drop {
+        padding: 18px;
+    }
+
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --ad-reserve-height: 60px;
+    }
+
+    .ad-container {
+        padding: 8px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .app {
+        padding: 12px 10px;
+        align-items: flex-start;
+    }
+
+    .panel {
+        padding: 16px 12px;
+        border-radius: 12px;
+    }
+
+    header {
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    h1 {
+        font-size: 1.125rem;
+    }
+
+    .pill {
+        font-size: .6875rem;
+        padding: 5px 8px;
+    }
+
+    .results-scroll {
+        max-height: 30vh;
+    }
+
+    .result-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .result-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .upload-controls {
+        flex-direction: column;
+    }
+
+    .btn {
+        padding: 10px 12px;
+        font-size: .8125rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .app {
+        padding: 10px 8px;
+    }
+
+    .panel {
+        padding: 14px;
+    }
+
+    .btn {
+        padding: 8px 10px;
+        font-size: .75rem;
+    }
+
+    .drop {
+        padding: 14px;
+    }
+}

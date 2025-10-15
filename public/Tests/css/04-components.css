@@ -1,0 +1,130 @@
+.section,
+.content-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.section h2,
+.section h3,
+.content-section h2 {
+    color: var(--text);
+}
+
+.drop-zone,
+.drop {
+    border: 2px dashed var(--border);
+    padding: 24px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: #fcfcfc;
+    transition: all .2s ease;
+    overflow: hidden;
+}
+
+.drop-zone:hover,
+.drop:hover {
+    border-color: var(--ig-grad-mid);
+}
+
+.drop-zone.drag-over,
+.drop.drag-over {
+    border-color: var(--ig-grad-start);
+    background: #f0f4ff;
+    outline: 3px dashed rgba(64, 93, 230, 0.18);
+}
+
+.controls,
+.upload-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn {
+    background: linear-gradient(90deg, var(--ig-grad-start), var(--ig-grad-end));
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: 0;
+    cursor: pointer;
+    font-size: .875rem;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .08);
+    transition: transform .15s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, .12);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    box-shadow: none;
+}
+
+.btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+@media (min-width: 768px) {
+    .features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.feature-card {
+    background: var(--surface-alt);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.feature-icon {
+    font-size: 1.5rem;
+    margin-bottom: .5rem;
+}
+
+.sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.info-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px;
+}
+
+.info-card h3 {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    color: var(--text);
+}
+
+.info-card ol {
+    padding-left: 20px;
+    margin-top: 8px;
+}

@@ -1,0 +1,53 @@
+.ad-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ad-min-padding);
+    background: var(--surface-alt);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+}
+
+.ad-container>* {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.ad-container ins.adsbygoogle,
+.ad-container ins.adsbygoogle>ins,
+.ad-container iframe {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.ad-container .ad-inner {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    display: block;
+    min-height: var(--ad-reserve-height);
+}
+
+.ad-placeholder {
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
+.ad-enabled {
+    opacity: 1;
+    pointer-events: auto;
+}

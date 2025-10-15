@@ -1,0 +1,216 @@
+/* 01-base.css
+   Reset base, tipografia e regole globali coerenti
+*/
+
+/* GLOBAL FIX: prevenire overflow dai figli flex/grid e forzare wrapping del contenuto */
+/* Inserire questo blocco in cima a css/01-base.css (o in 02-layout.css se preferisci) */
+
+/* 1) Consentiamo ai figli flex e grid di ridursi correttamente */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+.app,
+.grid,
+.main-grid,
+header,
+footer,
+aside,
+.panel,
+.container {
+    box-sizing: border-box;
+}
+
+/* Permetti ai figli di flex/grid di usare min-width: 0 per poter shrinkare */
+/* Applicalo genericamente a elementi che più spesso contengono sidebar/content */
+.app>*,
+.container>*,
+.grid>*,
+.main-grid>*,
+header>*,
+aside>*,
+.panel>* {
+    min-width: 0;
+    /* CRUCIALE: permette lo shrink vero dentro flex/grid */
+    min-height: 0;
+}
+
+/* 2) Forza wrapping / troncamento per testi e link lunghi */
+p,
+li,
+span,
+a,
+.username,
+.profile-link,
+.result-username,
+.user-details,
+.feature-card,
+.info-box {
+    overflow-wrap: break-word;
+    word-break: break-word;
+    word-wrap: break-word;
+    hyphens: auto;
+}
+
+/* 3) Immagini / media e iframe non devono eccedere il contenitore */
+img,
+video,
+iframe,
+.ad-inner,
+.ad-container * {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* 4) Blocchi che possono contenere liste/ol/pre devono scrollare internamente invece che rompere il layout */
+.info-box,
+.dd-panel,
+.results-scroll,
+.results-container,
+.feature-card {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* Se un pannello interno è troppo alto/lungo, abilita lo scroll interno invece di causare overflow della pagina */
+.dd-panel,
+.results-scroll {
+    max-height: 60vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 5) Bottone / label / controls: non creare larghezze fisse che spingono */
+.controls,
+.upload-controls,
+.btn,
+label,
+.pill {
+    max-width: 100%;
+    white-space: normal;
+    /* permette wrapping dei bottoni / label su più righe se necesario */
+}
+
+/* 6) Tavoli o preformattati: evita overflow orizzontale forzato */
+pre,
+code,
+table {
+    max-width: 100%;
+    overflow: auto;
+}
+
+/* 7) Utility debug (rimuovere in produzione) - evidenzia elementi che overflowano */
+.debug-find-overflow {
+    outline: 2px dashed rgba(255, 0, 0, 0.35);
+}
+
+/* Fine blocco global fix */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --ig-grad-start: #405de6;
+    --ig-grad-mid: #833ab4;
+    --ig-grad-end: #fd1d1d;
+    --primary: #405de6;
+
+    --card: #ffffff;
+    --surface: #ffffff;
+    --surface-alt: #f8fafc;
+    --bg: #f8fafc;
+
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+
+    --max-page-width: 1200px;
+}
+
+html,
+body {
+    height: 100%;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+small,
+.small {
+    font-size: .8125rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+h1 {
+    font-size: clamp(1.125rem, 4vw, 1.5rem);
+    margin: 0;
+    font-weight: 700;
+}
+
+h2 {
+    font-size: 1.125rem;
+    margin: 0 0 .5rem;
+    font-weight: 600;
+}
+
+h3 {
+    font-size: 1rem;
+    margin: 0 0 .5rem;
+    font-weight: 600;
+}
+
+img,
+video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    font: inherit;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* prevent horizontal scroll due to iframes */
+html,
+body,
+.app,
+.container,
+.panel {
+    max-width: 100%;
+    overflow-x: hidden;
+}

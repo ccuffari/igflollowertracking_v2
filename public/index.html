@@ -1,567 +1,195 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it" itemscope itemtype="https://schema.org/WebApplication">
 
 <head>
+  <!-- Meta base -->
   <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Instagram Follower Tracker - Analizza Chi Non Ti Segue Più</title>
 
-  <!-- SEO Meta Tags -->
-  <title>Instagram Follower Tracker - Analizza Chi Non Ti Segue Più | Tool Gratuito</title>
-  <meta name="description"
-    content="Scopri chi non ti segue più su Instagram con il nostro tracker gratuito e sicuro. Analisi completa dei follower in pochi secondi. Privacy garantita al 100%">
-  <meta name="keywords"
-    content="instagram follower tracker, analisi follower, chi non mi segue, instagram analytics, tool gratuito instagram, privacy instagram">
-  <meta name="author" content="IgFollowerTracking">
-  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+  <!-- CSS (ordine obbligatorio: variabili -> base -> layout -> componenti -> ads -> utilities -> responsive) -->
+  <link rel="stylesheet" href="css/00-variables.css"> <!-- variabili tema -->
+  <link rel="stylesheet" href="css/01-base.css"> <!-- reset e tipografia -->
+  <link rel="stylesheet" href="css/02-layout.css"> <!-- layout principale -->
+  <link rel="stylesheet" href="css/03-header-lead.css"> <!-- header / lead -->
+  <link rel="stylesheet" href="css/04-components.css"> <!-- bottoni, dropzone, cards -->
+  <link rel="stylesheet" href="css/05-ads.css"> <!-- regole per ads / iframe -->
+  <link rel="stylesheet" href="css/06-results.css"> <!-- risultati / liste -->
+  <link rel="stylesheet" href="css/07-ui-utilities.css"><!-- badge, dropdown, cookie -->
+  <link rel="stylesheet" href="css/08-responsive.css"> <!-- media queries (ultimo) -->
 
-  <!-- Google AdSense -->
-  <meta name="google-adsense-account" content="ca-pub-1948802026580753">
+  <!-- AdSense core: lascia async nel head -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753"
+    crossorigin="anonymous"></script>
 
-  <!-- Canonical & Alternate -->
-  <link rel="canonical" href="https://igfollowertracking.v2.com">
-  <link rel="alternate" hreflang="it" href="https://igfollowertracking.v2.com">
-  <link rel="alternate" hreflang="x-default" href="https://igfollowertracking.v2.com">
-
-  <!-- Open Graph -->
-  <meta property="og:title" content="Instagram Follower Tracker - Analizza Chi Non Ti Segue Più">
-  <meta property="og:description"
-    content="Scopri chi non ti segue più su Instagram con il nostro tracker gratuito e sicuro. Privacy garantita al 100%">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://igfollowertracking.v2.com">
-  <meta property="og:image" content="https://igfollowertracking.v2.com/og-image.jpg">
-  <meta property="og:site_name" content="Instagram Follower Tracker">
-  <meta property="og:locale" content="it_IT">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Instagram Follower Tracker - Analizza Chi Non Ti Segue Più">
-  <meta name="twitter:description"
-    content="Scopri chi non ti segue più su Instagram con il nostro tracker gratuito e sicuro">
-  <meta name="twitter:image" content="https://igfollowertracking.v2.com/twitter-image.jpg">
-
-  <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Instagram Follower Tracker",
-    "description": "Strumento gratuito per analizzare i follower Instagram e scoprire chi non ti segue più",
-    "url": "https://igfollowertracking.v2.com",
-    "applicationCategory": "UtilityApplication",
-    "operatingSystem": "Any",
-    "permissions": "none",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "EUR"
-    },
-    "author": {
-      "@type": "Organization",
-      "name": "IgFollowerTracking",
-      "url": "https://igfollowertracking.v2.com"
-    }
-  }
+  <!-- Safety: controllo compat mode e log chiaro (evita di lanciare ads in Quirks) -->
+  <script>
+    (function () {
+      // Document must be in CSS1Compat (Standards). BackCompat => Quirks.
+      if (document.compatMode !== 'CSS1Compat') {
+        console.warn('AVVISO: document.compatMode =', document.compatMode, '- la pagina è in Quirks Mode. Correggi DOCTYPE o contenuti precedenti al DOCTYPE.');
+        // segnala al codice ads di non pushare
+        window.__PAGE_IN_QUIRKS = true;
+      } else {
+        window.__PAGE_IN_QUIRKS = false;
+      }
+    })();
   </script>
-
-  <!-- Favicon & App Icons -->
-  <link rel="icon"
-    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="general.css" />
-  <link rel="stylesheet" href="footer.css" />
 </head>
 
 <body itemscope itemtype="https://schema.org/WebPage">
+  <!-- Wrapper esterno per dare senso di contenuto centrato e "card" con bordo gradiente -->
   <div class="app">
     <div class="container">
       <div class="panel" role="main" itemprop="mainContentOfPage">
+
+        <!-- HEADER -->
         <header>
           <div class="logo" aria-hidden="true">IG</div>
           <div style="flex:1;min-width:0">
             <h1 itemprop="headline">Instagram Follower Tracker</h1>
-            <p class="subtitle">Scopri chi non ti segue più in modo sicuro e privato</p>
+            <p class="subtitle">Scopri chi non ti segue più su Instagram in modo sicuro e privato</p>
           </div>
         </header>
 
-        <p class="lead" itemprop="description">
-          <strong>Benvenuto!</strong> Questo strumento ti aiuta a scoprire chi non ti segue più su Instagram.
-          Carica il file ZIP che esporti da Instagram e vedrai subito la lista delle persone che segui ma che non ti
-          seguono.
-          <strong>Tutto avviene sul tuo dispositivo</strong> - i tuoi dati non vengono mai inviati a server esterni.
-        </p>
+        <!-- TOP AD SLOT -->
+        <div class="ad-container" id="ad-top" data-min-width="320" data-slot="1234567890" aria-hidden="true">
+          <div class="ad-inner" id="ad-top-inner"></div>
+        </div>
 
-        <div class="grid" style="margin-top:16px">
+        <!-- MAIN INTRO -->
+        <div class="content-section">
+          <h2>Analizza i Tuoi Follower Instagram in Modo Sicuro</h2>
+          <p>Il nostro <strong>Instagram Follower Tracker</strong> è lo strumento definitivo per scoprire chi non ti
+            segue più su Instagram. Con una tecnologia avanzata che rispetta la tua privacy, puoi avere il controllo
+            sulla tua cerchia di follower.</p>
+        </div>
+
+        <!-- GRID: content + sidebar -->
+        <div class="grid">
           <div>
-            <div class="drop" id="dropzone">
-              <div class="controls">
-                <label class="btn" for="zipfile" id="selectZipLabel">
-                  📁 Seleziona ZIP
-                </label>
-                <input id="zipfile" type="file" accept=".zip" />
-                <button id="resetBtn" class="btn ghost">🔄 Reset</button>
-                <div style="flex:1;min-width:10px"></div>
-                <div class="pill small warning" id="statusPill">Caricamento in corso...</div>
+            <div class="content-section">
+              <h3>Inizia l'Analisi dei Tuoi Follower</h3>
+
+              <!-- DROP ZONE / UPLOAD -->
+              <div class="drop" id="dropzone" aria-label="Carica ZIP esportazione Instagram">
+                <div class="controls" style="display:flex;gap:8px;align-items:center">
+                  <label class="btn" for="zipfile" id="selectZipLabel"
+                    style="background:#0073e6;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer">📁 Seleziona
+                    ZIP</label>
+                  <input id="zipfile" type="file" accept=".zip" />
+                  <button id="resetBtn" class="btn ghost" style="padding:8px 12px;border-radius:6px">🔄 Reset</button>
+                  <div style="flex:1;min-width:10px"></div>
+                  <div class="pill small warning" id="statusPill">Caricamento libreria...</div>
+                </div>
+
+                <div class="small" style="margin-top:10px">
+                  <p>💡 <strong>Come funziona:</strong> Trascina qui il file ZIP oppure clicca "Seleziona ZIP".</p>
+                  <p>🔒 <strong>Privacy garantita:</strong> Tutta l'elaborazione avviene sul tuo dispositivo. I tuoi
+                    dati non vengono inviati o memorizzati altrove.</p>
+                </div>
               </div>
 
-              <div class="small">
-                <p>💡 <strong>Come funziona:</strong> Trascina qui il file ZIP oppure clicca "Seleziona ZIP".</p>
-                <p>🔒 <strong>Privacy garantita:</strong> Tutta l'elaborazione avviene sul tuo dispositivo. I tuoi dati
-                  non vengono mai inviati o memorizzati altrove.</p>
-              </div>
+              <!-- RISULTATI -->
+              <div class="results" id="results" aria-live="polite" style="margin-top:12px"></div>
             </div>
 
-            <div class="results" id="results" aria-live="polite"></div>
+            <!-- IN-CONTENT AD (mostrato dinamicamente) -->
+            <div class="ad-container ad-placeholder" id="ad-incontent" data-min-width="320" data-slot="1234567891"
+              aria-hidden="true">
+              <div class="ad-inner" id="ad-incontent-inner"></div>
+            </div>
+
+            <div class="content-section">
+              <h3>Perché Scegliere il Nostro Tracker?</h3>
+              <div class="features-grid"
+                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+                <div class="feature-card">
+                  <div class="feature-icon">🔒</div>
+                  <h4>Privacy Totale</h4>
+                  <p class="small">I tuoi dati non lasciano mai il dispositivo.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">⚡</div>
+                  <h4>Analisi Rapida</h4>
+                  <p class="small">Risultati in pochi secondi.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">💰</div>
+                  <h4>Gratuito</h4>
+                  <p class="small">Nessun costo, nessuna registrazione.</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">📊</div>
+                  <h4>Dati Precisi</h4>
+                  <p class="small">Analisi basata sui dati esportati.</p>
+                </div>
+              </div>
+            </div>
           </div>
 
+          <!-- SIDEBAR -->
           <aside>
-            <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
               <div class="info-box">
                 <h3>📋 Istruzioni passo-passo</h3>
                 <ol class="small">
-                  <li>Esporta i tuoi dati da Instagram (guida qui sotto)</li>
+                  <li>Esporta i tuoi dati da Instagram</li>
                   <li>Riceverai un file ZIP via email o download</li>
                   <li>Carica quel file ZIP qui</li>
                   <li>Vedrai subito chi non ti segue più</li>
                 </ol>
               </div>
 
-              <div class="info-box">
-                <h3>🔒 Privacy e Sicurezza</h3>
-                <div class="small">
-                  <p>✅ <strong>Nessun dato esterno</strong> - tutto rimane sul tuo dispositivo</p>
-                  <p>✅ <strong>Nessuna raccolta dati</strong> - non salviamo nulla</p>
-                  <p>✅ <strong>Nessuna cache</strong> - i dati spariscono quando chiudi la pagina</p>
-                  <p>✅ <strong>Elaborazione client-side</strong> - tutto avviene nel tuo browser</p>
-                </div>
+              <div class="ad-container ad-placeholder" id="ad-sidebar" data-min-width="160" data-slot="1234567892"
+                aria-hidden="true">
+                <div class="ad-inner" id="ad-sidebar-inner"></div>
               </div>
 
               <div class="dropdown">
-                <button class="dd-btn" id="ddToggle" aria-expanded="false">
-                  📥 Guida per esportare i dati da Instagram
-                </button>
-                <div class="dd-panel" id="ddPanel">
+                <button class="dd-btn" id="ddToggle" aria-expanded="false">📥 Guida per esportare i dati da
+                  Instagram</button>
+                <div class="dd-panel" id="ddPanel"
+                  style="display:none;padding:8px;border:1px solid #eee;border-radius:6px">
                   <div class="small">
                     <p>Segui questi passaggi per scaricare i tuoi dati da Instagram:</p>
-                  </div>
-                  <ol class="small">
-                    <li>Vai su Instagram → Il tuo profilo → Menu (tre linee)</li>
-                    <li>Seleziona "Impostazioni e privacy"</li>
-                    <li>Scorri fino a "Centro assistenza account"</li>
-                    <li>Clicca su "Scarica le tue informazioni"</li>
-                    <li>Seleziona o crea un nuovo export</li>
-                    <li>Seleziona il tuo profilo Instagram</li>
-                    <li>Metodo di consegna: "Scarica sul dispositivo"</li>
-                    <li>In "Personalizza informazioni" deseleziona tutto tranne "Followers e following"</li>
-                    <li>Intervallo di date: "Tutto il periodo"</li>
-                    <li>Qualità media: "Qualità superiore"</li>
-                    <li>Clicca "Crea export" e attendi l'email di conferma</li>
-                  </ol>
-                  <div style="margin-top:12px">
-                    <div class="video-placeholder"><video width="320" height="240" controls>
-                      <source src="ScreenRecording_10-07-2025 14-40-30_1.mp4" type="video/mp4">
-                      Your browser does not support the video tag.
-                    </video></div>
-                  </div>
-                  <div class="small" style="margin-top:12px;color:var(--warning)">
-                    <strong>Nota importante:</strong> Instagram potrebbe impiegare fino a 48 ore per preparare il tuo
-                    file. Una volta ricevuto, aprilo ed estrai il file ZIP (non caricare file JSON direttamente).
+                    <ol class="small">
+                      <li>Vai su Instagram → Il tuo profilo → Menu (tre linee)</li>
+                      <li>Seleziona "Impostazioni e privacy" → "Scarica le tue informazioni"</li>
+                      <li>Deseleziona tutto tranne "Followers e following"</li>
+                      <li>Clicca "Crea export" e attendi l'email</li>
+                    </ol>
                   </div>
                 </div>
               </div>
-
             </div>
           </aside>
         </div>
 
-        <div class="legal-section">
-          <h3>⚖️ Informativa Legale e Privacy</h3>
-          <p class="small">
-            <strong>Disclaimer:</strong> Questo strumento è fornito "così com'è" senza garanzie di alcun tipo.
-            Non siamo affiliati con Instagram o Meta Platforms, Inc. L'utente è l'unico responsabile
-            per l'uso di questo strumento e per assicurarsi di rispettare i Termini di Servizio di Instagram.
-          </p>
-          <p class="small">
-            <strong>Privacy:</strong> Questo sito non raccoglie, memorizza o trasmette alcun dato personale.
-            Tutta l'elaborazione avviene localmente sul tuo dispositivo. Non utilizziamo cookie di tracciamento,
-            analytics o tecnologie di profilazione.
-          </p>
-          <p class="small">
-            <strong>Conformità:</strong> Questo strumento è progettato per essere conforme al GDPR, CCPA e altre
-            leggi sulla privacy. I dati degli utenti di Instagram vengono elaborati solo con il consenso esplicito
-            dell'utente e solo per lo scopo dichiarato.
-          </p>
+        <!-- FOOTER AD -->
+        <div class="ad-container ad-placeholder" id="ad-footer" data-min-width="320" data-slot="1234567893"
+          aria-hidden="true">
+          <div class="ad-inner" id="ad-footer-inner"></div>
         </div>
 
-        <!-- Footer Incluso -->
-        <div id="footer-container"></div>
+        <!-- LEGAL -->
+        <div class="legal-section" style="margin-top:18px">
+          <h3>⚖️ Informativa Legale e Privacy</h3>
+          <p class="small"><strong>Disclaimer:</strong> Questo strumento è fornito "così com'è". Non siamo affiliati con
+            Instagram o Meta.</p>
+          <p class="small"><strong>Privacy:</strong> Questo sito non raccoglie, memorizza o trasmette i dati degli
+            utenti. L'elaborazione è client-side.</p>
+        </div>
+
+        <div id="footer-container" style="margin-top:12px"></div>
       </div>
     </div>
   </div>
 
-  <script>
-    // Carica il footer
-    fetch('footer.html')
-      .then(response => response.text())
-      .then(data => {
-        document.getElementById('footer-container').innerHTML = data;
-      })
-      .catch(error => {
-        console.error('Errore nel caricamento del footer:', error);
-        document.getElementById('footer-container').innerHTML = '<div class="footer">Instagram Follower Tracker v2.0</div>';
-      });
-
-    // Resto del codice JavaScript per l'applicazione...
-    document.addEventListener('DOMContentLoaded', function () {
-      console.log('DOM caricato, inizializzo app...');
-
-      // Riferimenti agli elementi
-      const results = document.getElementById('results');
-      const zipInput = document.getElementById('zipfile');
-      const drop = document.getElementById('dropzone');
-      const resetBtn = document.getElementById('resetBtn');
-      const ddToggle = document.getElementById('ddToggle');
-      const ddPanel = document.getElementById('ddPanel');
-      const statusPill = document.getElementById('statusPill');
-      const selectZipLabel = document.getElementById('selectZipLabel');
-
-      // Stato iniziale
-      let JSZipLoaded = false;
-      results.innerHTML = '<div class="small loading">🔄 Caricamento libreria JSZip...</div>';
-      selectZipLabel.style.opacity = '0.5';
-      selectZipLabel.style.cursor = 'not-allowed';
-
-      // Funzione per caricare JSZip con fallback
-      function loadJSZip() {
-        return new Promise((resolve, reject) => {
-          if (window.JSZip) {
-            resolve(window.JSZip);
-            return;
-          }
-
-          // Primo tentativo: CDN principale
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-
-          script.onload = () => {
-            console.log('JSZip caricato con successo');
-            resolve(window.JSZip);
-          };
-
-          script.onerror = () => {
-            console.log('Primo CDN fallito, provo alternativo...');
-            // Secondo tentativo: CDN alternativo
-            const script2 = document.createElement('script');
-            script2.src = 'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js';
-
-            script2.onload = () => {
-              console.log('JSZip caricato con CDN alternativo');
-              resolve(window.JSZip);
-            };
-
-            script2.onerror = () => {
-              console.log('Tutti i CDN falliti');
-              reject(new Error('Impossibile caricare JSZip da nessun CDN'));
-            };
-
-            document.head.appendChild(script2);
-          };
-
-          document.head.appendChild(script);
-        });
-      }
-
-      // Inizializza JSZip all'avvio
-      loadJSZip().then((JSZip) => {
-        console.log('JSZip pronto');
-        JSZipLoaded = true;
-        statusPill.textContent = '✅ Pronto';
-        statusPill.className = 'pill small success';
-        results.innerHTML = '<div class="small fade-in">✅ <strong>Pronto!</strong> Carica un file ZIP esportato da Instagram per iniziare.</div>';
-        selectZipLabel.style.opacity = '1';
-        selectZipLabel.style.cursor = 'pointer';
-      }).catch((error) => {
-        console.error('Errore caricamento JSZip:', error);
-        statusPill.textContent = '❌ Errore caricamento';
-        statusPill.className = 'pill small error';
-        results.innerHTML = `
-          <div class="error fade-in">
-            <strong>❌ Errore nel caricamento della libreria</strong><br><br>
-            <strong>Possibili cause:</strong><br>
-            • Problemi di connessione Internet<br>
-            • Blocco degli script esterni<br>
-            • Firewall o restrizioni di rete<br><br>
-            <strong>Soluzioni:</strong><br>
-            • Verifica la connessione Internet<br>
-            • Disabilita eventuali blocca-script<br>
-            • Prova a ricaricare la pagina<br>
-            • Usa una rete diversa
-          </div>
-        `;
-        selectZipLabel.style.opacity = '0.5';
-        selectZipLabel.style.cursor = 'not-allowed';
-      });
-
-      // Gestione dropdown
-      ddToggle.addEventListener('click', function () {
-        const isOpen = ddPanel.classList.toggle('open');
-        ddToggle.setAttribute('aria-expanded', isOpen);
-      });
-
-      // Funzione per sanitizzare username
-      function sanitizeUsername(raw) {
-        if (!raw) return null;
-        raw = String(raw).trim();
-        const urlm = raw.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/i);
-        if (urlm) return urlm[1].toLowerCase();
-        if (raw.startsWith('@')) raw = raw.slice(1);
-        const m = raw.match(/^([A-Za-z0-9._-]+)/);
-        return m ? m[1].toLowerCase() : null;
-      }
-
-      // Funzione per array unici e ordinati
-      function uniqueSorted(arr) {
-        return Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b));
-      }
-
-      // Funzione per renderizzare la lista
-      function renderList(list) {
-        if (!list || list.length === 0) {
-          return `
-            <div class="empty-state">
-              <div class="empty-state-icon">🎉</div>
-              <div class="small">
-                <strong>Ottime notizie!</strong><br>
-                Non hai nessuno che non ti segue tra le persone che segui.
-              </div>
-            </div>
-          `;
-        }
-
-        const userItems = list.map(u => `
-          <li class="user-item fade-in">
-            <div class="user-info">
-              <div class="user-avatar">${u.charAt(0).toUpperCase()}</div>
-              <div class="user-details">
-                <div class="username">@${u}</div>
-                <a class="profile-link" href="https://www.instagram.com/${encodeURIComponent(u)}/" target="_blank" rel="noopener noreferrer">
-                  instagram.com/${u}
-                </a>
-              </div>
-            </div>
-            <div class="user-actions">
-              <button class="action-btn" onclick="window.open('https://www.instagram.com/${encodeURIComponent(u)}/', '_blank')">
-                Vedi profilo
-              </button>
-            </div>
-          </li>
-        `).join('');
-
-        return `
-          <div class="results-container">
-            <div class="results-header">
-              <div class="results-count">👥 Persone che non ti seguono: ${list.length}</div>
-              <div class="small">File analizzati: ${1 + compareFiles.length}</div>
-            </div>
-            <div class="results-scroll">
-              <ul class="user-list">
-                ${userItems}
-              </ul>
-            </div>
-          </div>
-        `;
-      }
-
-      // Funzione per estrarre username dal testo
-      function extractUsernamesFromText(text) {
-        const found = new Set();
-        if (!text) return [];
-        const trimmed = String(text).trim();
-
-        try {
-          const j = JSON.parse(trimmed);
-          (function walk(node) {
-            if (node === null || node === undefined) return;
-            if (typeof node === 'string') {
-              const su = sanitizeUsername(node);
-              if (su) found.add(su);
-              const reUrl = /instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-              let m;
-              while ((m = reUrl.exec(node)) !== null) { found.add(m[1].toLowerCase()); }
-              const reAt = /@([A-Za-z0-9._-]+)/g;
-              while ((m = reAt.exec(node)) !== null) { found.add(m[1].toLowerCase()); }
-              return;
-            }
-            if (Array.isArray(node)) node.forEach(walk);
-            else if (typeof node === 'object') Object.values(node).forEach(walk);
-          })(j);
-        } catch (e) {
-          const stripped = trimmed.replace(/<[^>]+>/g, '\n');
-          const reUrl = /instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-          let m;
-          while ((m = reUrl.exec(stripped)) !== null) { found.add(m[1].toLowerCase()); }
-          const reAt = /@([A-Za-z0-9._-]+)/g;
-          while ((m = reAt.exec(stripped)) !== null) { found.add(m[1].toLowerCase()); }
-          stripped.split(/\r?\n/).forEach(l => { const s = sanitizeUsername(l); if (s) found.add(s); });
-        }
-
-        return Array.from(found);
-      }
-
-      // Variabile globale per i file di confronto
-      let compareFiles = [];
-
-      // Funzione per processare il file ZIP
-      async function processZip(file) {
-        if (!JSZipLoaded) {
-          results.innerHTML = '<div class="error">JSZip non è ancora caricato. Attendere...</div>';
-          return;
-        }
-
-        console.log('Processing ZIP file:', file.name);
-        results.innerHTML = '<div class="small loading">🔄 Analisi in corso... Questo potrebbe richiedere alcuni secondi.</div>';
-
-        try {
-          const arrayBuffer = await file.arrayBuffer();
-          const zip = await window.JSZip.loadAsync(arrayBuffer);
-
-          const targetPrefix = 'connections/followers_and_following/';
-          const files = [];
-          zip.forEach((relativePath, zipEntry) => {
-            const lp = relativePath.replace(/^\/+/, '');
-            if (lp.toLowerCase().startsWith(targetPrefix) && !zipEntry.dir) {
-              const name = lp.slice(targetPrefix.length);
-              files.push({ path: lp, name, entry: zipEntry });
-            }
-          });
-
-          if (files.length === 0) {
-            results.innerHTML = '<div class="error">Nessun file trovato nella cartella "connections/followers_and_following" dello ZIP. Assicurati di aver esportato correttamente i dati da Instagram.</div>';
-            return;
-          }
-
-          const primaryFile = files.find(f => /^following(?:\.[^.]*)?$/i.test(f.name));
-          compareFiles = files.filter(f => /^followers_.*\.json$/i.test(f.name));
-
-          if (!primaryFile) {
-            results.innerHTML = '<div class="error">Impossibile trovare "following.json" nella cartella prevista. Il file ZIP potrebbe non essere corretto.</div>';
-            return;
-          }
-
-          if (compareFiles.length === 0) {
-            results.innerHTML = '<div class="error">Nessun file "followers_*.json" trovato. Assicurati di aver esportato sia i follower che i following da Instagram.</div>';
-            return;
-          }
-
-          async function readJsonEntry(entryObj) {
-            const txt = await entryObj.entry.async('string');
-            try {
-              const j = JSON.parse(txt);
-              const collected = new Set();
-              (function walk(node) {
-                if (node === null || node === undefined) return;
-                if (typeof node === 'string') {
-                  const s = sanitizeUsername(node);
-                  if (s) collected.add(s);
-                  const re = /instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-                  let m;
-                  while ((m = re.exec(node)) !== null) collected.add(m[1].toLowerCase());
-                  return;
-                }
-                if (Array.isArray(node)) node.forEach(walk);
-                else if (typeof node === 'object') Object.values(node).forEach(walk);
-              })(j);
-              return Array.from(collected);
-            } catch (e) {
-              return extractUsernamesFromText(txt);
-            }
-          }
-
-          const primaryList = await readJsonEntry(primaryFile);
-          let othersList = [];
-          for (const cf of compareFiles) {
-            const l = await readJsonEntry(cf);
-            othersList = othersList.concat(l);
-          }
-
-          const primaryU = uniqueSorted(primaryList);
-          const othersU = uniqueSorted(othersList);
-          const othersSet = new Set(othersU);
-          const missing = primaryU.filter(u => !othersSet.has(u));
-
-          results.innerHTML = renderList(missing);
-
-        } catch (err) {
-          console.error('Errore elaborazione:', err);
-          results.innerHTML = `<div class="error">❌ Errore durante l'analisi: ${String(err)}<br><br>Assicurati di aver selezionato un file ZIP valido esportato da Instagram.</div>`;
-        }
-      }
-
-      // Aggiungi event listeners
-      zipInput.addEventListener('change', function (e) {
-        if (!JSZipLoaded) {
-          results.innerHTML = '<div class="error">JSZip non è ancora caricato. Attendere...</div>';
-          return;
-        }
-
-        const file = e.target.files[0];
-        if (file && file.name.endsWith('.zip')) {
-          processZip(file);
-        } else if (file) {
-          results.innerHTML = '<div class="error">Per favore seleziona un file ZIP valido esportato da Instagram.</div>';
-        }
-      });
-
-      resetBtn.addEventListener('click', function () {
-        zipInput.value = '';
-        results.innerHTML = JSZipLoaded ?
-          '<div class="small fade-in">✅ <strong>Pronto!</strong> Carica un file ZIP esportato da Instagram per iniziare.</div>' :
-          '<div class="small loading">🔄 Caricamento libreria JSZip...</div>';
-      });
-
-      // Drag and drop
-      ['dragenter', 'dragover'].forEach(ev => {
-        drop.addEventListener(ev, function (e) {
-          e.preventDefault();
-          drop.classList.add('drag-over');
-        });
-      });
-
-      ['dragleave', 'drop'].forEach(ev => {
-        drop.addEventListener(ev, function (e) {
-          e.preventDefault();
-          drop.classList.remove('drag-over');
-        });
-      });
-
-      drop.addEventListener('drop', function (e) {
-        e.preventDefault();
-
-        if (!JSZipLoaded) {
-          results.innerHTML = '<div class="error">JSZip non è ancora caricato. Attendere...</div>';
-          return;
-        }
-
-        const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith('.zip')) {
-          processZip(file);
-        } else if (file) {
-          results.innerHTML = '<div class="error">Per favore seleziona un file ZIP valido esportato da Instagram.</div>';
-        }
-      });
-
-      console.log('App inizializzata correttamente');
-
-      // Prevenire la chiusura accidentale con conferma
-      window.addEventListener('beforeunload', function (e) {
-        if (results.innerHTML.includes('Analisi in corso') || results.innerHTML.includes('results-container')) {
-          e.preventDefault();
-          e.returnValue = 'Sei sicuro di voler lasciare la pagina? I risultati dell\'analisi andranno persi.';
-        }
-      });
-    });
-  </script>
+  <!-- Script files: ads helper e app logic. Usano window.__PAGE_IN_QUIRKS per decidere se pushare gli ads. -->
+  <script src="scripts/ads.js" defer></script>
+  <script src="scripts/app.js" defer></script>
 </body>
 
 </html>
