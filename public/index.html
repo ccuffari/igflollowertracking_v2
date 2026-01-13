@@ -1,317 +1,212 @@
 <!DOCTYPE html>
-<html lang="it" itemscope itemtype="https://schema.org/WebApplication">
+<html lang="it">
 
 <head>
-  <!-- Meta base -->
-  <meta charset="utf-8" />
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Instagram Follower Tracker - Analizza Chi Non Ti Segue Più</title>
-  <meta name="description" content="Instagram Follower Tracker gratuito: scopri chi non ti segue più su Instagram. Analisi completa, privacy garantita, nessuna registrazione. Strumento ufficiale per gestire i follower Instagram.">
-  <meta name="keywords" content="Instagram follower tracker, chi non mi segue più, analisi follower Instagram, gestione follower, Instagram analytics, strumento Instagram gratuito, follower checker">
-  
-  <!-- CSS (ordine obbligatorio: variabili -> base -> layout -> componenti -> ads -> utilities -> responsive) -->
-  <link rel="stylesheet" href="css/00-variables.css"> <!-- variabili tema -->
-  <link rel="stylesheet" href="css/01-base.css"> <!-- reset e tipografia -->
-  <link rel="stylesheet" href="css/02-layout.css"> <!-- layout principale -->
-  <link rel="stylesheet" href="css/03-header-lead.css"> <!-- header / lead -->
-  <link rel="stylesheet" href="css/04-components.css"> <!-- bottoni, dropzone, cards -->
-  <link rel="stylesheet" href="css/05-ads.css"> <!-- regole per ads / iframe -->
-  <link rel="stylesheet" href="css/06-results.css"> <!-- risultati / liste -->
-  <link rel="stylesheet" href="css/07-ui-utilities.css"><!-- badge, dropdown, cookie -->
-  <link rel="stylesheet" href="css/08-responsive.css"> <!-- media queries (ultimo) -->
-  <link rel="stylesheet" href="css/general.css"> <!-- media queries (ultimo) -->
-
-  <!-- AdSense core: lascia async nel head -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753"
-    crossorigin="anonymous"></script>
-
-  <!-- Safety: controllo compat mode e log chiaro (evita di lanciare ads in Quirks) -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Instagram Follower Tracker | Analisi Completa Follower Gratuita</title>
+  <meta name="description" content="Scopri chi non ti segue più su Instagram. Analisi completa e sicura direttamente nel tuo browser. Nessuna registrazione, completamente gratuito.">
+  <link rel="stylesheet" href="css/general.css">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
   <script>
-    (function () {
-      // Document must be in CSS1Compat (Standards). BackCompat => Quirks.
+    (function() {
       if (document.compatMode !== 'CSS1Compat') {
-        console.warn('AVVISO: document.compatMode =', document.compatMode, '- la pagina è in Quirks Mode. Correggi DOCTYPE o contenuti precedenti al DOCTYPE.');
-        // segnala al codice ads di non pushare
+        console.warn('Document in Quirks Mode');
         window.__PAGE_IN_QUIRKS = true;
       } else {
         window.__PAGE_IN_QUIRKS = false;
       }
     })();
   </script>
+  <style>
+    /* Minimal styles for AdSense compliance */
+    .ad-container { 
+      margin: 20px 0; 
+      min-height: 280px; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      background: #f8f9fa; 
+      border-radius: 8px; 
+      overflow: hidden; 
+    }
+    .ad-container:before { 
+      content: "Annuncio"; 
+      position: absolute; 
+      font-size: 11px; 
+      color: #999; 
+      margin-top: -20px; 
+    }
+    .ad-placeholder { 
+      min-height: 250px; 
+    }
+    .content-rich { 
+      line-height: 1.6; 
+      max-width: 800px; 
+      margin: 0 auto 30px; 
+    }
+    .feature-icon { 
+      font-size: 2em; 
+      margin-bottom: 10px; 
+    }
+    .step-number { 
+      background: #405de6; 
+      color: white; 
+      width: 30px; 
+      height: 30px; 
+      border-radius: 50%; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      margin-right: 10px; 
+    }
+  </style>
 </head>
 
-<body itemscope itemtype="https://schema.org/WebPage">
-  <!-- Wrapper esterno per dare senso di contenuto centrato e "card" con bordo gradiente -->
+<body>
   <div class="app">
+    <!-- AdSense Top Ad -->
+    <div class="ad-container" id="ad-top">
+      <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-1948802026580753" data-ad-slot="1234567890" data-ad-format="auto"></ins>
+    </div>
+
     <div class="container">
-      <div class="panel" role="main" itemprop="mainContentOfPage">
+      <header class="main-header">
+        <h1>Instagram Follower Tracker</h1>
+        <p class="subtitle">Analizza chi non ti segue più direttamente dal tuo browser</p>
+      </header>
 
-        <!-- HEADER -->
-        <header>
-          <div class="logo" aria-hidden="true">IG</div>
-          <div style="flex:1;min-width:0">
-            <h1 itemprop="headline">Instagram Follower Tracker</h1>
-            <p class="subtitle">Scopri chi non ti segue più su Instagram in modo sicuro e privato</p>
-          </div>
-        </header>
-
-        <!-- TOP AD SLOT -->
-        <div class="ad-container" id="ad-top" data-min-width="320" data-slot="1234567890" aria-hidden="true">
-          <div class="ad-inner" id="ad-top-inner"></div>
-        </div>
-
-        <!-- MAIN INTRO -->
-        <div class="content-section">
-          <h2>Analizza i Tuoi Follower Instagram in Modo Sicuro</h2>
-          <p>Il nostro <strong>Instagram Follower Tracker</strong> è lo strumento definitivo per scoprire chi non ti
-            segue più su Instagram. Con una tecnologia avanzata che rispetta la tua privacy, puoi avere il controllo
-            sulla tua cerchia di follower.</p>
+      <!-- Main Content Area -->
+      <main class="main-content">
+        <section class="content-rich">
+          <h2>Scopri Chi Non Ti Segue Più su Instagram</h2>
+          <p>Il nostro strumento analizza i dati che Instagram ti permette di esportare, identificando con precisione gli account che non ti seguono più. <strong>Tutto avviene localmente sul tuo dispositivo</strong> – i tuoi dati non vengono mai inviati a server esterni.</p>
           
-          <div class="feature-detail">
-            <h3>Analisi Completa dei Tuoi Follower</h3>
-            <p>Il nostro strumento ti permette di analizzare i tuoi dati Instagram esportati per identificare:</p>
-            <ul>
-              <li><strong>Chi non ti segue più</strong> - Persone che ti hanno smesso di seguire</li>
-              <li><strong>Account inattivi</strong> - Follower che non interagiscono più</li>
-              <li><strong>Account sospetti</strong> - Possibili bot o account fake</li>
-              <li><strong>Statistiche dettagliate</strong> - Rapporti completi sui tuoi follower</li>
-            </ul>
-          </div>
-
-          <div class="feature-detail">
-            <h3>Perché Utilizzare Questo Strumento</h3>
-            <p>Gestire i propri follower su Instagram è fondamentale per:</p>
-            <ul>
-              <li><strong>Crescere il tuo profilo</strong> - Identifica i follower reali vs quelli falsi</li>
-              <li><strong>Migliorare l'engagement</strong> - Concentrati sui follower che interagiscono veramente</li>
-              <li><strong>Pulire la tua lista</strong> - Rimuovi account inattivi o sospetti</li>
-              <li><strong>Analisi periodiche</strong> - Monitora i cambiamenti nel tempo</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- TUTORIAL SECTION -->
-        <div class="content-section tutorial-section">
-          <h2>📚 Guida Completa all'Uso dello Strumento</h2>
-          
-          <div class="tutorial-step">
-            <h3>Passo 1: Esporta i tuoi dati da Instagram</h3>
-            <p>Instagram permette di esportare tutti i tuoi dati attraverso la funzione "Scarica le tue informazioni":</p>
-            <ol>
-              <li>Vai su Instagram → Il tuo profilo → Menu (tre linee)</li>
-              <li>Seleziona "Impostazioni e privacy"</li>
-              <li>Clicca su "Scarica le tue informazioni"</li>
-              <li>Seleziona solo "Followers e following" per un file più piccolo</li>
-              <li>Scegli formato JSON e invia la richiesta</li>
-            </ol>
-          </div>
-
-          <div class="tutorial-step">
-            <h3>Passo 2: Attendi l'email di Instagram</h3>
-            <p>Instagram invierà un'email con il link per scaricare i tuoi dati. Questo processo può richiedere da pochi minuti a 48 ore.</p>
-          </div>
-
-          <div class="tutorial-step">
-            <h3>Passo 3: Carica il file ZIP</h3>
-            <p>Una volta scaricato il file ZIP, caricalo qui sopra per iniziare l'analisi.</p>
-          </div>
-        </div>
-
-        <!-- GRID: content + sidebar -->
-        <div class="grid">
-          <div>
-            <div class="content-section">
-              <h3>Inizia l'Analisi dei Tuoi Follower</h3>
-
-              <!-- DROP ZONE / UPLOAD -->
-              <div class="drop" id="dropzone" aria-label="Carica ZIP esportazione Instagram">
-                <div class="controls" style="display:flex;gap:8px;align-items:center">
-                  <label class="btn" for="zipfile" id="selectZipLabel"
-                    style="background:#0073e6;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer">📁 Seleziona
-                    ZIP</label>
-                  <input id="zipfile" type="file" accept=".zip" />
-                  <button id="resetBtn" class="btn ghost" style="padding:8px 12px;border-radius:6px">🔄 Reset</button>
-                  <div style="flex:1;min-width:10px"></div>
-                  <div class="pill small warning" id="statusPill">Caricamento libreria...</div>
-                </div>
-
-                <div class="small" style="margin-top:10px">
-                  <p>💡 <strong>Come funziona:</strong> Trascina qui il file ZIP oppure clicca "Seleziona ZIP".</p>
-                  <p>🔒 <strong>Privacy garantita:</strong> Tutta l'elaborazione avviene sul tuo dispositivo. I tuoi
-                    dati non vengono inviati o memorizzati altrove.</p>
-                </div>
-              </div>
-
-              <!-- RISULTATI -->
-              <div class="results" id="results" aria-live="polite" style="margin-top:12px">
-                <div class="results-placeholder">
-                  <h3>📊 Risultati dell'Analisi</h3>
-                  <p>Dopo aver caricato il file ZIP, qui vedrai:</p>
-                  <ul>
-                    <li>Lista di chi non ti segue più</li>
-                    <li>Statistiche dettagliate</li>
-                    <li>Grafici dell'andamento follower</li>
-                    <li>Suggerimenti per migliorare il tuo profilo</li>
-                  </ul>
-                  
-                  <div class="sample-stats">
-                    <h4>Esempio di analisi che riceverai:</h4>
-                    <div class="stat-grid">
-                      <div class="stat-item">
-                        <span class="stat-number">150</span>
-                        <span class="stat-label">Follower totali</span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-number">23</span>
-                        <span class="stat-label">Non ti seguono più</span>
-                      </div>
-                      <div class="stat-item">
-                        <span class="stat-number">85%</span>
-                        <span class="stat-label">Tasso di retention</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div class="feature-grid">
+            <div class="feature">
+              <div class="feature-icon">🔒</div>
+              <h3>Privacy Garantita</h3>
+              <p>Elaborazione 100% offline, nessun accesso al tuo account Instagram</p>
             </div>
-
-            <!-- IN-CONTENT AD (mostrato dinamicamente) -->
-            <div class="ad-container ad-placeholder" id="ad-incontent" data-min-width="320" data-slot="1234567891"
-              aria-hidden="true">
-              <div class="ad-inner" id="ad-incontent-inner"></div>
+            <div class="feature">
+              <div class="feature-icon">⚡</div>
+              <h3>Risultati Immediati</h3>
+              <p>Analisi completa in pochi secondi</p>
             </div>
-
-            <div class="content-section">
-              <h3>Perché Scegliere il Nostro Tracker?</h3>
-              <div class="features-grid"
-                style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-                <div class="feature-card">
-                  <div class="feature-icon">🔒</div>
-                  <h4>Privacy Totale</h4>
-                  <p class="small">I tuoi dati non lasciano mai il dispositivo.</p>
-                </div>
-                <div class="feature-card">
-                  <div class="feature-icon">⚡</div>
-                  <h4>Analisi Rapida</h4>
-                  <p class="small">Risultati in pochi secondi.</p>
-                </div>
-                <div class="feature-card">
-                  <div class="feature-icon">💰</div>
-                  <h4>Gratuito</h4>
-                  <p class="small">Nessun costo, nessuna registrazione.</p>
-                </div>
-                <div class="feature-card">
-                  <div class="feature-icon">📊</div>
-                  <h4>Dati Precisi</h4>
-                  <p class="small">Analisi basata sui dati esportati.</p>
-                </div>
-              </div>
+            <div class="feature">
+              <div class="feature-icon">💰</div>
+              <h3>Completamente Gratuito</h3>
+              <p>Nessun costo nascosto o registrazione</p>
             </div>
           </div>
+        </section>
 
-          <!-- SIDEBAR -->
-          <aside>
-            <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
-              <div class="info-box">
-                <h3>📋 Istruzioni passo-passo</h3>
-                <ol class="small">
-                  <li>Esporta i tuoi dati da Instagram</li>
-                  <li>Riceverai un file ZIP via email o download</li>
-                  <li>Carica quel file ZIP qui</li>
-                  <li>Vedrai subito chi non ti segue più</li>
-                </ol>
-              </div>
-
-              <div class="ad-container ad-placeholder" id="ad-sidebar" data-min-width="160" data-slot="1234567892"
-                aria-hidden="true">
-                <div class="ad-inner" id="ad-sidebar-inner"></div>
-              </div>
-
-              <div class="dropdown">
-                <button class="dd-btn" id="ddToggle" aria-expanded="false">📥 Guida per esportare i dati da
-                  Instagram</button>
-                <div class="dd-panel" id="ddPanel"
-                  style="display:none;padding:8px;border:1px solid #eee;border-radius:6px">
-                  <div class="small">
-                    <p>Segui questi passaggi per scaricare i tuoi dati da Instagram:</p>
-                    <ol class="small">
-                      <li>Vai su Instagram → Il tuo profilo → Menu (tre linee)</li>
-                      <li>Seleziona "Impostazioni e privacy" → "Scarica le tue informazioni"</li>
-                      <li>Deseleziona tutto tranne "Followers e following"</li>
-                      <li>Clicca "Crea export" e attendi l'email</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
+        <!-- How-to Steps -->
+        <section class="content-rich">
+          <h2>Come Funziona in 3 Passaggi</h2>
+          <div class="steps">
+            <div class="step">
+              <h3><span class="step-number">1</span> Esporta i Dati da Instagram</h3>
+              <p>Vai su <strong>Impostazioni → Sicurezza → Scarica informazioni</strong>, seleziona solo "Followers e following" e richiedi l'export in formato JSON.</p>
             </div>
-          </aside>
+            <div class="step">
+              <h3><span class="step-number">2</span> Carica il File ZIP</h3>
+              <p>Una volta ricevuto l'email di Instagram, scarica il file ZIP e caricalo qui sotto.</p>
+            </div>
+            <div class="step">
+              <h3><span class="step-number">3</span> Ottieni l'Analisi Completa</h3>
+              <p>Visualizza la lista degli account che non ti seguono più, con statistiche dettagliate.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-section">
+          <div class="drop" id="dropzone">
+            <div class="controls">
+              <label class="btn" for="zipfile" id="selectZipLabel">📁 Seleziona File ZIP</label>
+              <input id="zipfile" type="file" accept=".zip" style="display:none">
+              <button id="resetBtn" class="btn ghost">🔄 Reset</button>
+              <div class="pill" id="statusPill">Pronto</div>
+            </div>
+            <p class="small">🔒 <strong>Sicurezza:</strong> Tutta l'elaborazione avviene localmente. I tuoi dati non lasciano mai il tuo computer.</p>
+          </div>
+
+          <!-- Results Container -->
+          <div class="results" id="results" aria-live="polite">
+            <div class="default-state">
+              <h3>📊 I tuoi risultati appariranno qui</h3>
+              <p>Dopo aver caricato il file ZIP, vedrai:</p>
+              <ul>
+                <li>Lista completa degli account che non ti seguono</li>
+                <li>Statistiche dettagliate sui tuoi follower</li>
+                <li>Analisi degli account inattivi o sospetti</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- AdSense In-Content Ad -->
+        <div class="ad-container ad-placeholder" id="ad-incontent">
+          <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-1948802026580753" data-ad-slot="1234567891" data-ad-format="auto"></ins>
         </div>
 
-        <!-- FOOTER AD -->
-        <div class="ad-container ad-placeholder" id="ad-footer" data-min-width="320" data-slot="1234567893"
-          aria-hidden="true">
-          <div class="ad-inner" id="ad-footer-inner"></div>
-        </div>
-
-        <!-- FAQ SECTION -->
-        <div class="content-section faq-section">
-          <h2>❓ Domande Frequenti</h2>
-          
-          <div class="faq-item">
-            <h3>I miei dati sono al sicuro?</h3>
-            <p><strong>Assolutamente sì.</strong> Tutta l'elaborazione avviene localmente sul tuo dispositivo. I tuoi dati non vengono mai inviati ai nostri server o a terze parti.</p>
+        <!-- FAQ -->
+        <section class="content-rich">
+          <h2>Domande Frequenti</h2>
+          <div class="faq">
+            <div class="faq-item">
+              <h3>⚠️ È sicuro usare questo strumento?</h3>
+              <p><strong>Assolutamente sì.</strong> Non richiediamo l'accesso al tuo account Instagram. Usi solo i dati che Instagram ti permette di esportare, e l'analisi avviene completamente sul tuo dispositivo.</p>
+            </div>
+            <div class="faq-item">
+              <h3>💰 Perché è gratuito?</h3>
+              <p>Manteniamo i costi bassi e supportiamo il servizio tramite annunci non invasivi. Non venderemo mai i tuoi dati.</p>
+            </div>
+            <div class="faq-item">
+              <h3>📱 Funziona su tutti i dispositivi?</h3>
+              <p>Sì, il tool funziona su computer, tablet e smartphone con browser moderni.</p>
+            </div>
+            <div class="faq-item">
+              <h3>⏱️ Quanto tempo richiede l'analisi?</h3>
+              <p>L'analisi completa richiede pochi secondi, a seconda delle dimensioni del file ZIP.</p>
+            </div>
           </div>
+        </section>
+      </main>
 
-          <div class="faq-item">
-            <h3>Questo strumento è gratuito?</h3>
-            <p><strong>Sì, completamente gratuito.</strong> Non richiede registrazione, abbonamenti o pagamenti nascosti.</p>
-          </div>
-
-          <div class="faq-item">
-            <h3>Funziona con Instagram Business?</h3>
-            <p><strong>Sì, funziona con tutti i tipi di account Instagram:</strong> personali, business e creator.</p>
-          </div>
-
-          <div class="faq-item">
-            <h3>Con che frequenza posso usare lo strumento?</h3>
-            <p>Puoi usarlo tutte le volte che vuoi. Ti consigliamo di fare analisi mensili per monitorare i cambiamenti.</p>
-          </div>
-
-          <div class="faq-item">
-            <h3>Devo scaricare software?</h3>
-            <p><strong>No.</strong> È uno strumento web che funziona direttamente dal browser, senza installazioni.</p>
-          </div>
-        </div>
-
-        <!-- LEGAL -->
-        <div class="legal-section" style="margin-top:18px">
-          <h3>⚖️ Informativa Legale e Privacy</h3>
-          <p class="small"><strong>Disclaimer:</strong> Questo strumento è fornito "così com'è". Non siamo affiliati con
-            Instagram o Meta.</p>
-          <p class="small"><strong>Privacy:</strong> Questo sito non raccoglie, memorizza o trasmette i dati degli
-            utenti. L'elaborazione è client-side.</p>
-        </div>
-
-        <!-- FOOTER -->
-        <footer class="site-footer">
-          <div class="footer-content">
-            <p>&copy; 2024 Instagram Follower Tracker. Tutti i diritti riservati.</p>
-            <nav class="footer-links">
-              <a href="/privacy-policy.html">Privacy Policy</a>
-              <a href="/terms.html">Termini di Servizio</a>
-              <a href="/contact.html">Contatti</a>
-              <a href="/about.html">Chi Siamo</a>
-            </nav>
-          </div>
-        </footer>
+      <!-- AdSense Footer Ad -->
+      <div class="ad-container ad-placeholder" id="ad-footer">
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-1948802026580753" data-ad-slot="1234567893" data-ad-format="auto"></ins>
       </div>
+
+      <footer class="main-footer">
+        <p>Instagram Follower Tracker &copy; 2024 | <a href="/privacy">Privacy</a> | <a href="/terms">Termini</a></p>
+        <p class="small"><em>Non affiliato con Instagram o Meta Platforms.</em></p>
+      </footer>
     </div>
   </div>
 
-  <!-- Script files: ads helper e app logic. Usano window.__PAGE_IN_QUIRKS per decidere se pushare gli ads. -->
   <script src="scripts/ads.js" defer></script>
-  <script src="scripts/app.js" defer></script>
-</body>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // AdSense auto-ads initialization
+      if (!window.__PAGE_IN_QUIRKS) {
+        setTimeout(function() {
+          try {
+            (adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (e) {
+            console.warn('AdSense push error:', e);
+          }
+        }, 1000);
+      }
 
+      // Main app script
+      const script = document.createElement('script');
+      script.src = 'scripts/app.js';
+      script.defer = true;
+      document.head.appendChild(script);
+    });
+  </script>
+</body>
 </html>
