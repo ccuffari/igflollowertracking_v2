@@ -1,182 +1,346 @@
-document.addEventListener('DOMContentLoaded',function(){
-  function loadJSZip(){
-    if(window.JSZip)return Promise.resolve(window.JSZip);
-    return new Promise((resolve,reject)=>{
-      const s=document.createElement('script');
-      s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-      s.onload=()=>resolve(window.JSZip);
-      s.onerror=()=>{
-        const s2=document.createElement('script');
-        s2.src='https://unpkg.com/jszip@3.10.1/dist/jszip.min.js';
-        s2.onload=()=>resolve(window.JSZip);
-        s2.onerror=()=>reject(new Error('Impossibile caricare JSZip'));
-        document.head.appendChild(s2);
-      };
-      document.head.appendChild(s);
+document.addEventListener('DOMContentLoaded', function() {
+  // ========== CONFIGURAZIONE FILTRI ==========
+  const FILTER_CONFIG = {
+    MIN_USERNAME_LENGTH: 3,
+    MAX_USERNAME_LENGTH: 30,
+    EXCLUDE_PATTERNS: [
+      /^(?:user|instagram|official|_.+|.+_)$/i,
+      /^[0-9]+$/,
+      /^[a-z]{1,2}$/i,
+      /.*(?:bot|spam|fake|test|dummy).*/i,
+      /.*[0-9]{8,}.*/
+    ],
+    EXCLUDE_KEYWORDS: [
+      'deleted', 'removed', 'unavailable', 'instagrammer',
+      'fanpage', 'page', 'business', 'shop', 'store'
+    ]
+  };
+
+  // ========== FUNZIONI DI VALIDAZIONE ==========
+  function isValidInstagramUsername(username) {
+    if (!username || typeof username !== 'string') return false;
+    
+    const cleanUsername = username.trim().toLowerCase();
+    
+    if (cleanUsername.length < FILTER_CONFIG.MIN_USERNAME_LENGTH || 
+        cleanUsername.length > FILTER_CONFIG.MAX_USERNAME_LENGTH) return false;
+    
+    if (!/^[a-z0-9._]+$/.test(cleanUsername)) return false;
+    
+    if (/^[._]|[._]$/.test(cleanUsername)) return false;
+    
+    if (/\.\.|__|_\.|\._/.test(cleanUsername)) return false;
+    
+    for (const pattern of FILTER_CONFIG.EXCLUDE_PATTERNS) {
+      if (pattern.test(cleanUsername)) return false;
+    }
+    
+    for (const keyword of FILTER_CONFIG.EXCLUDE_KEYWORDS) {
+      if (cleanUsername.includes(keyword)) return false;
+    }
+    
+    if (/(.)\1{4,}/.test(cleanUsername)) return false;
+    
+    return cleanUsername;
+  }
+
+  function extractUsername(raw) {
+    if (!raw) return null;
+    
+    const rawStr = String(raw).trim();
+    let extracted = null;
+    
+    const patterns = [
+      /instagram\.com\/(?:p\/|reel\/|stories\/|explore\/tags\/)?@?([a-z0-9._]+)/i,
+      /https?:\/\/(?:www\.)?instagram\.com\/(?:p\/|reel\/|stories\/|explore\/tags\/)?@?([a-z0-9._]+)/i,
+      /^@([a-z0-9._]+)$/i,
+      /^([a-z0-9._]+)$/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = rawStr.match(pattern);
+      if (match && match[1]) {
+        extracted = match[1].toLowerCase();
+        break;
+      }
+    }
+    
+    return extracted ? isValidInstagramUsername(extracted) : null;
+  }
+
+  // ========== ANALISI FILE JSON ==========
+  function analyzeJsonData(jsonContent) {
+    const extractedUsernames = new Set();
+    
+    try {
+      const data = typeof jsonContent === 'string' ? JSON.parse(jsonContent) : jsonContent;
+      
+      function traverse(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        
+        if (Array.isArray(obj)) {
+          obj.forEach(traverse);
+          return;
+        }
+        
+        if (typeof obj === 'object') {
+          if (obj.title && typeof obj.title === 'string') {
+            const username = extractUsername(obj.title);
+            if (username) extractedUsernames.add(username);
+          }
+          
+          if (obj.value && typeof obj.value === 'string') {
+            const username = extractUsername(obj.value);
+            if (username) extractedUsernames.add(username);
+          }
+          
+          if (obj.href && typeof obj.href === 'string') {
+            const username = extractUsername(obj.href);
+            if (username) extractedUsernames.add(username);
+          }
+          
+          if (obj.string_list_data && Array.isArray(obj.string_list_data)) {
+            obj.string_list_data.forEach(traverse);
+          }
+          
+          if (obj.relationships_following && Array.isArray(obj.relationships_following)) {
+            obj.relationships_following.forEach(traverse);
+          }
+          
+          Object.values(obj).forEach(traverse);
+        }
+      }
+      
+      traverse(data);
+    } catch (error) {
+      console.error('Errore analisi JSON:', error);
+    }
+    
+    return Array.from(extractedUsernames);
+  }
+
+  // ========== FILTRAGGIO AVANZATO ==========
+  function filterInvalidAccounts(usernames) {
+    return usernames.filter(username => {
+      const digitCount = (username.match(/\d/g) || []).length;
+      if (digitCount > 5) return false;
+      
+      if (username.includes('...') || username.includes('___')) return false;
+      
+      const genericPatterns = ['user', 'insta', 'gram', 'follow', 'like', 'comment'];
+      for (const pattern of genericPatterns) {
+        if (username === pattern || 
+            username.startsWith(pattern + '_') || 
+            username.endsWith('_' + pattern)) {
+          return false;
+        }
+      }
+      
+      return true;
     });
   }
-  function sanitizeUsername(raw){
-    if(!raw)return null;
-    raw=String(raw).trim();
-    const urlm=raw.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/i);
-    if(urlm)return urlm[1].toLowerCase();
-    if(raw.startsWith('@'))raw=raw.slice(1);
-    const m=raw.match(/^([A-Za-z0-9._-]+)/);
-    return m?m[1].toLowerCase():null;
+
+  // ========== CARICAMENTO JSZIP ==========
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      
+      script.onload = () => resolve(window.JSZip);
+      script.onerror = () => {
+        const fallbackScript = document.createElement('script');
+        fallbackScript.src = 'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js';
+        fallbackScript.onload = () => resolve(window.JSZip);
+        fallbackScript.onerror = () => reject(new Error('Impossibile caricare JSZip'));
+        document.head.appendChild(fallbackScript);
+      };
+      
+      document.head.appendChild(script);
+    });
   }
-  function uniqueSorted(arr){return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>a.localeCompare(b))}
-  function extractUsernamesFromText(text){
-    const found=new Set();
-    if(!text)return[];
-    const trimmed=String(text).trim();
-    try{
-      const j=JSON.parse(trimmed);
-      (function walk(node){
-        if(node===null||node===undefined)return;
-        if(typeof node==='string'){
-          const su=sanitizeUsername(node);
-          if(su)found.add(su);
-          const reUrl=/instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-          let m;
-          while((m=reUrl.exec(node))!==null)found.add(m[1].toLowerCase());
-          const reAt=/@([A-Za-z0-9._-]+)/g;
-          while((m=reAt.exec(node))!==null)found.add(m[1].toLowerCase());
-          return;
-        }
-        if(Array.isArray(node))node.forEach(walk);else if(typeof node==='object')Object.values(node).forEach(walk);
-      })(j);
-    }catch(e){
-      const stripped=trimmed.replace(/<[^>]+>/g,'\n');
-      const reUrl=/instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-      let m;
-      while((m=reUrl.exec(stripped))!==null)found.add(m[1].toLowerCase());
-      const reAt=/@([A-Za-z0-9._-]+)/g;
-      while((m=reAt.exec(stripped))!==null)found.add(m[1].toLowerCase());
-      stripped.split(/\r?\n/).forEach(l=>{const s=sanitizeUsername(l);if(s)found.add(s)});
-    }
-    return Array.from(found);
-  }
-  function renderList(list){
-    if(!list||list.length===0){
-      return '<div class="empty-state"><div class="empty-state-icon">🎉</div><div class="small"><strong>Ottime notizie!</strong><br>Non hai nessuno che non ti segue tra le persone che segui.</div></div>';
-    }
-    const userItems=list.map(u=>`<li class="user-item fade-in"><div style="display:flex;gap:10px;align-items:center"><div class="user-avatar">${u.charAt(0).toUpperCase()}</div><div class="user-details"><div class="username">@${u}</div><a class="profile-link" href="https://www.instagram.com/${encodeURIComponent(u)}/" target="_blank" rel="noopener noreferrer">instagram.com/${u}</a></div></div><div><button class="action-btn" onclick="window.open('https://www.instagram.com/${encodeURIComponent(u)}/','_blank')">Vedi profilo</button></div></li>`).join('');
-    return `<div class="results-container"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="results-count">👥 Persone che non ti seguono: ${list.length}</div></div><div class="results-scroll"><ul class="user-list">${userItems}</ul></div></div>`;
-  }
-  async function readJsonEntry(entryObj){
-    const txt=await entryObj.entry.async('string');
-    try{
-      const j=JSON.parse(txt);
-      const collected=new Set();
-      (function walk(node){
-        if(node===null||node===undefined)return;
-        if(typeof node==='string'){
-          const s=sanitizeUsername(node);
-          if(s)collected.add(s);
-          const re=/instagram\.com\/(?:p|explore\/tags\/)?@?([A-Za-z0-9._-]+)/ig;
-          let m;
-          while((m=re.exec(node))!==null)collected.add(m[1].toLowerCase());
-          return;
-        }
-        if(Array.isArray(node))node.forEach(walk);else if(typeof node==='object')Object.values(node).forEach(walk);
-      })(j);
-      return Array.from(collected);
-    }catch(e){
-      return extractUsernamesFromText(txt);
-    }
-  }
-  const results=document.getElementById('results');
-  const zipInput=document.getElementById('zipfile');
-  const drop=document.getElementById('dropzone');
-  const resetBtn=document.getElementById('resetBtn');
-  const ddToggle=document.getElementById('ddToggle');
-  const ddPanel=document.getElementById('ddPanel');
-  const statusPill=document.getElementById('statusPill');
-  let JSZipLoaded=false;
-  results.innerHTML='<div class="small loading">🔄 Caricamento libreria JSZip...</div>';
-  const selectZipLabel=document.getElementById('selectZipLabel');
-  selectZipLabel.style.opacity='0.5';
-  selectZipLabel.style.cursor='not-allowed';
-  loadJSZip().then((JSZip)=>{
-    JSZipLoaded=true;
-    statusPill.textContent='✅ Pronto';
-    statusPill.className='pill small success';
-    results.innerHTML='<div class="small fade-in">✅ <strong>Pronto!</strong> Carica un file ZIP esportato da Instagram per iniziare l\\analisi.</div>';
-    selectZipLabel.style.opacity='1';
-    selectZipLabel.style.cursor='pointer';
-    try{if(window.__adsHelperInit)window.__adsHelperInit()}catch(e){}
-  }).catch((error)=>{
-    statusPill.textContent='❌ Errore caricamento';
-    statusPill.className='pill small error';
-    results.innerHTML=`<div class="error fade-in"><strong>❌ Errore nel caricamento della libreria</strong><br><br><strong>Possibili cause:</strong><br>• Problemi di connessione Internet<br>• Blocco degli script esterni<br><br><strong>Soluzioni:</strong><br>• Verifica la connessione Internet<br>• Disabilita eventuali blocca-script<br>• Prova a ricaricare la pagina</div>`;
-    selectZipLabel.style.opacity='0.5';
-    selectZipLabel.style.cursor='not-allowed';
-  });
-  if(ddToggle)ddToggle.addEventListener('click',function(){
-    const isOpen=ddPanel.classList.toggle('open');
-    ddToggle.setAttribute('aria-expanded',isOpen);
-    ddPanel.style.display=isOpen?'block':'none';
-  });
-  async function processZip(file){
-    if(!JSZipLoaded){results.innerHTML='<div class="error">JSZip non è ancora caricato. Attendere...</div>';return}
-    results.innerHTML='<div class="small loading">🔄 Analisi in corso... Questo potrebbe richiedere alcuni secondi.</div>';
-    try{
-      const arrayBuffer=await file.arrayBuffer();
-      const zip=await window.JSZip.loadAsync(arrayBuffer);
-      const targetPrefix='connections/followers_and_following/';
-      const files=[];
-      zip.forEach((relativePath,zipEntry)=>{
-        const lp=relativePath.replace(/^\/+/,'');
-        if(lp.toLowerCase().startsWith(targetPrefix) && !zipEntry.dir){
-          const name=lp.slice(targetPrefix.length);
-          files.push({path:lp,name,entry:zipEntry});
+
+  // ========== GESTIONE ZIP ==========
+  async function processZipFile(file) {
+    const results = document.getElementById('results');
+    const statusPill = document.getElementById('statusPill');
+    
+    statusPill.textContent = '🔄 Analisi...';
+    statusPill.className = 'pill processing';
+    results.innerHTML = '<div class="loading">🔄 Analisi in corso...</div>';
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await window.JSZip.loadAsync(arrayBuffer);
+      
+      let followingData = null;
+      const followersData = [];
+      
+      zip.forEach((path, entry) => {
+        if (!entry.dir) {
+          const lowerPath = path.toLowerCase();
+          
+          if (lowerPath.includes('following') && lowerPath.endsWith('.json')) {
+            followingData = entry;
+          }
+          
+          if (lowerPath.includes('follower') && lowerPath.endsWith('.json')) {
+            followersData.push(entry);
+          }
         }
       });
-      if(files.length===0){
-        results.innerHTML='<div class="error">Nessun file trovato nella cartella "connections/followers_and_following" dello ZIP. Assicurati di aver esportato correttamente i dati da Instagram.</div>';
-        return;
+      
+      if (!followingData) throw new Error('File following.json non trovato');
+      if (followersData.length === 0) throw new Error('File follower non trovati');
+      
+      const followingContent = await followingData.async('string');
+      const followingUsernamesRaw = analyzeJsonData(followingContent);
+      const followingUsernames = filterInvalidAccounts(followingUsernamesRaw);
+      
+      const allFollowers = new Set();
+      for (const followerFile of followersData) {
+        const followerContent = await followerFile.async('string');
+        const followerUsernamesRaw = analyzeJsonData(followerContent);
+        const followerUsernames = filterInvalidAccounts(followerUsernamesRaw);
+        followerUsernames.forEach(u => allFollowers.add(u));
       }
-      const primaryFile=files.find(f=>/^following(?:\.[^.]*)?$/i.test(f.name));
-      const compareFiles=files.filter(f=>/^followers_.*\.json$/i.test(f.name));
-      if(!primaryFile){results.innerHTML='<div class="error">Impossibile trovare "following.json" nella cartella prevista. Il file ZIP potrebbe non essere corretto.</div>';return}
-      if(compareFiles.length===0){results.innerHTML='<div class="error">Nessun file "followers_*.json" trovato. Assicurati di aver esportato sia i follower che i following da Instagram.</div>';return}
-      const primaryList=await readJsonEntry(primaryFile);
-      let othersList=[];
-      for(const cf of compareFiles){const l=await readJsonEntry(cf);othersList=othersList.concat(l)}
-      const primaryU=uniqueSorted(primaryList);
-      const othersU=uniqueSorted(othersList);
-      const othersSet=new Set(othersU);
-      const missing=primaryU.filter(u=>!othersSet.has(u));
-      results.innerHTML=renderList(missing);
-      try{if(window.__adsHelperInit)window.__adsHelperInit()}catch(e){}
-    }catch(err){
-      results.innerHTML=`<div class="error">❌ Errore durante l'analisi: ${String(err)}<br><br>Assicurati di aver selezionato un file ZIP valido esportato da Instagram.</div>`;
+      
+      const followersArray = Array.from(allFollowers);
+      const followersSet = new Set(followersArray);
+      
+      const notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
+      
+      displayResults(notFollowingBack, followingUsernames.length, followersArray.length);
+      
+      statusPill.textContent = '✅ Completo';
+      statusPill.className = 'pill success';
+      
+    } catch (error) {
+      statusPill.textContent = '❌ Errore';
+      statusPill.className = 'pill error';
+      results.innerHTML = `<div class="error">Errore: ${error.message}</div>`;
     }
   }
-  if(zipInput){
-    zipInput.addEventListener('change',function(e){
-      if(!JSZipLoaded){results.innerHTML='<div class="error">JSZip non è ancora caricato. Attendere...</div>';return}
-      const file=e.target.files[0];
-      if(file && file.name.endsWith('.zip')){processZip(file)}else if(file){results.innerHTML='<div class="error">Per favore seleziona un file ZIP valido esportato da Instagram.</div>'}
-    });
-  }
-  if(resetBtn)resetBtn.addEventListener('click',function(){
-    if(zipInput)zipInput.value='';
-    results.innerHTML=JSZipLoaded?'<div class="small fade-in">✅ <strong>Pronto!</strong> Carica un file ZIP esportato da Instagram per iniziare.</div>':'<div class="small loading">🔄 Caricamento libreria JSZip...</div>';
-  });
-  ['dragenter','dragover'].forEach(ev=>{if(drop)drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('drag-over')})});
-  ['dragleave','drop'].forEach(ev=>{if(drop)drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('drag-over')})});
-  if(drop)drop.addEventListener('drop',function(e){
-    e.preventDefault();
-    if(!JSZipLoaded){results.innerHTML='<div class="error">JSZip non è ancora caricato. Attendere...</div>';return}
-    const file=e.dataTransfer.files[0];
-    if(file && file.name.endsWith('.zip')){processZip(file)}else if(file){results.innerHTML='<div class="error">Per favore seleziona un file ZIP valido esportato da Instagram.</div>'}
-  });
-  window.addEventListener('beforeunload',function(e){
-    if(results.innerHTML.includes('Analisi in corso') || results.querySelector('.results-container')){
-      e.preventDefault();
-      e.returnValue='Sei sicuro di voler lasciare la pagina? I risultati dell\'analisi andranno persi.';
+
+  // ========== VISUALIZZAZIONE RISULTATI ==========
+  function displayResults(notFollowingBack, followingCount, followersCount) {
+    const results = document.getElementById('results');
+    
+    if (notFollowingBack.length === 0) {
+      results.innerHTML = `
+        <div class="success">
+          <div style="font-size: 3em; margin-bottom: 10px;">🎉</div>
+          <strong>Ottime notizie!</strong><br>
+          Tutti i ${followingCount} account che segui ti seguono a loro volta!
+        </div>
+      `;
+      return;
     }
+    
+    const listItems = notFollowingBack.map(username => `
+      <li class="user-item">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+              ${username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div style="font-weight: bold;">@${username}</div>
+              <a href="https://instagram.com/${username}" target="_blank" style="font-size: 0.9em; color: #666;">
+                instagram.com/${username}
+              </a>
+            </div>
+          </div>
+          <button onclick="window.open('https://instagram.com/${username}', '_blank')" 
+                  style="padding: 5px 15px; background: #405de6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Vedi
+          </button>
+        </div>
+      </li>
+    `).join('');
+    
+    results.innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <div>
+            <strong>👥 Account che non ti seguono:</strong> ${notFollowingBack.length}
+          </div>
+          <div style="font-size: 0.9em; color: #666;">
+            ${followingCount} seguiti → ${followersCount} follower
+          </div>
+        </div>
+        <div style="background: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 0.9em; margin-bottom: 15px;">
+          <strong>Filtri applicati:</strong> Rimossi account inattivi, spam, non validi e pattern sospetti
+        </div>
+        <ul style="list-style: none; padding: 0; max-height: 400px; overflow-y: auto;">
+          ${listItems}
+        </ul>
+      </div>
+    `;
+  }
+
+  // ========== INIZIALIZZAZIONE ==========
+  loadJSZip().then(() => {
+    const results = document.getElementById('results');
+    const statusPill = document.getElementById('statusPill');
+    
+    statusPill.textContent = '✅ Pronto';
+    statusPill.className = 'pill success';
+    results.innerHTML = '<div>✅ Pronto! Carica il file ZIP di Instagram.</div>';
+    
+    const zipInput = document.getElementById('zipfile');
+    const dropzone = document.getElementById('dropzone');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    if (zipInput) {
+      zipInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.name.endsWith('.zip')) {
+          processZipFile(file);
+        }
+      });
+    }
+    
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(ev => {
+        dropzone.addEventListener(ev, e => {
+          e.preventDefault();
+          dropzone.classList.add('drag-over');
+        });
+      });
+      
+      ['dragleave', 'drop'].forEach(ev => {
+        dropzone.addEventListener(ev, e => {
+          e.preventDefault();
+          dropzone.classList.remove('drag-over');
+        });
+      });
+      
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.zip')) {
+          processZipFile(file);
+        }
+      });
+    }
+    
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        if (zipInput) zipInput.value = '';
+        results.innerHTML = '<div>✅ Pronto! Carica il file ZIP di Instagram.</div>';
+        statusPill.textContent = '✅ Pronto';
+        statusPill.className = 'pill success';
+      });
+    }
+    
+  }).catch(error => {
+    console.error('Errore caricamento JSZip:', error);
+    document.getElementById('results').innerHTML = `
+      <div class="error">
+        ❌ Errore caricamento libreria. Ricarica la pagina.
+      </div>
+    `;
   });
-  try{fetch('footer.html').then(r=>r.text()).then(t=>{document.getElementById('footer-container').innerHTML=t}).catch(()=>{document.getElementById('footer-container').innerHTML='<div class=\"footer\">Instagram Follower Tracker v2.0</div>'})}catch(e){}
 });
