@@ -82,7 +82,7 @@
     }
     
     .expandable-content.open {
-      max-height: 500px;
+      max-height: 1000px;
       padding: 15px;
       border: 1px solid #e0e0e0;
       border-top: none;
@@ -181,6 +181,25 @@
       margin: 0 5px 5px 0;
     }
     
+    .trust-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    
+    .trust-badge {
+      background: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+    
     @media (max-width: 768px) {
       .controls {
         flex-direction: column;
@@ -190,6 +209,10 @@
       .controls .btn {
         width: 100%;
         text-align: center;
+      }
+      
+      .trust-badges {
+        flex-direction: column;
       }
     }
   </style>
@@ -205,7 +228,7 @@
           <div class="logo" aria-hidden="true" style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C); color: white;">IG</div>
           <div style="flex:1;min-width:0">
             <h1 itemprop="headline" class="ig-gradient">Instagram Follower Tracker</h1>
-            <p class="subtitle">Scopri chi non ti segue più su Instagram in pochi secondi</p>
+            <p class="subtitle">Analizza i tuoi follower e scopri chi non ti segue più - completamente sicuro e privato</p>
           </div>
         </header>
 
@@ -219,57 +242,107 @@
                data-full-width-responsive="true"></ins>
         </div>
 
-        <!-- INTRO BREVE -->
-        <div style="text-align: center; margin: 20px 0;">
-          <p>Carica il file ZIP esportato da Instagram e scopri subito chi non ti segue più.</p>
-          <div style="margin: 15px 0;">
-            <span class="feature-tag">🔒 Privacy garantita</span>
-            <span class="feature-tag">⚡ Risultati immediati</span>
-            <span class="feature-tag">💰 100% gratuito</span>
+        <!-- TRUST BADGES -->
+        <div class="trust-badges">
+          <div class="trust-badge">
+            <span style="color:#28a745;">✓</span> Elaborazione 100% offline
+          </div>
+          <div class="trust-badge">
+            <span style="color:#28a745;">✓</span> Nessun accesso al tuo account
+          </div>
+          <div class="trust-badge">
+            <span style="color:#28a745;">✓</span> Dati non salvati sui server
+          </div>
+          <div class="trust-badge">
+            <span style="color:#28a745;">✓</span> Analisi immediata
           </div>
         </div>
 
         <!-- GUIDA ESPANDIBILE -->
         <div class="expandable-header" onclick="toggleExpandable('guide')">
-          <span>📚 Come esportare i dati da Instagram</span>
+          <span>📚 Guida passo-passo per esportare i dati da Instagram</span>
           <span class="expandable-icon" id="guide-icon">▼</span>
         </div>
         <div class="expandable-content" id="guide-content">
-          <ol style="padding-left: 20px; margin: 0;">
-            <li><strong>Apri Instagram</strong> → Menu → <strong>"Impostazioni e privacy"</strong></li>
-            <li>Clicca <strong>"Scarica le tue informazioni"</strong></li>
-            <li>Seleziona solo <strong>"Followers e following"</strong></li>
-            <li>Scegli <strong>formato JSON</strong> e attendi l'email</li>
-          </ol>
-          <p style="margin-top: 10px; font-size: 0.85em; color: #666;">Riceverai un file ZIP da caricare qui sotto.</p>
+          <div style="padding: 10px 0;">
+            <p><strong>Importante:</strong> Per ottenere un file corretto e leggero, segui queste impostazioni precise:</p>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+              <h4 style="margin-top: 0;">Impostazioni consigliate:</h4>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Intervallo di date:</strong> "Dall'inizio" (seleziona tutta la cronologia)</li>
+                <li><strong>Formato:</strong> JSON (obbligatorio per il nostro strumento)</li>
+                <li><strong>Qualità media:</strong> "Higher" o "High"</li>
+                <li><strong>Dimensione file:</strong> Seleziona solo "Followers e following" per file più piccoli</li>
+                <li><strong>Email per il download:</strong> Usa l'email associata al tuo account Instagram</li>
+              </ul>
+            </div>
+            
+            <h4>Passaggi dettagliati:</h4>
+            <ol style="padding-left: 20px;">
+              <li><strong>Apri Instagram</strong> (app mobile o desktop)</li>
+              <li>Vai sul tuo <strong>profilo</strong> e clicca sul menu (tre linee in alto a destra)</li>
+              <li>Seleziona <strong>"Impostazioni e privacy"</strong></li>
+              <li>Scorri fino a <strong>"Centro per la privacy"</strong> → <strong>"Scarica le tue informazioni"</strong></li>
+              <li>Clicca <strong>"Richiedi download"</strong></li>
+              <li><strong>Configurazione IMPORTANTE:</strong>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                  <li>Clicca su <strong>"Seleziona tipi di informazioni"</strong></li>
+                  <li><strong>Deseleziona TUTTO</strong> tranne <strong>"Followers e following"</strong></li>
+                  <li><strong>Intervallo di date:</strong> Seleziona "Dall'inizio"</li>
+                  <li><strong>Formato:</strong> Seleziona <strong>JSON</strong> (NON HTML)</li>
+                  <li><strong>Qualità media:</strong> Imposta su "Higher" o "High"</li>
+                </ul>
+              </li>
+              <li>Clicca <strong>"Crea export"</strong> e conferma con la tua password</li>
+            </ol>
+            
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+              <p style="margin: 0;"><strong>💡 Cosa succede dopo:</strong></p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Instagram preparerà il tuo file (da 15 minuti a 48 ore)</li>
+                <li>Riceverai un'email con il link di download (controlla anche spam/promozioni)</li>
+                <li>Il link scade dopo 4 giorni - scarica subito il file ZIP</li>
+                <li>Il file sarà di 1-5 MB per la maggior parte degli account</li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <!-- UPLOAD SECTION -->
         <div class="upload-section">
           <div style="text-align: center; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0;">Carica il tuo file ZIP</h3>
-            <p style="margin: 0; color: #666;">Trascina qui il file o clicca per selezionarlo</p>
+            <h3 style="margin: 0 0 10px 0;">Carica il tuo file ZIP da Instagram</h3>
+            <p style="margin: 0; color: #666;">Trascina il file qui o clicca per selezionarlo</p>
           </div>
 
           <div class="drop" id="dropzone">
             <div class="controls">
-              <label class="btn ig-btn" for="zipfile" id="selectZipLabel" style="padding:12px 24px;">📁 Seleziona ZIP</label>
+              <label class="btn ig-btn" for="zipfile" id="selectZipLabel" style="padding:12px 24px;">📁 Seleziona File ZIP</label>
               <input id="zipfile" type="file" accept=".zip" style="display:none">
               <button id="resetBtn" class="btn ghost" style="padding:12px 24px;">🔄 Reset</button>
               <div style="flex:1;min-width:10px"></div>
               <div class="pill" id="statusPill">Pronto</div>
             </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+              <p style="margin: 0; font-size: 0.9em; color: #666;">
+                <strong>⚠️ Assicurati:</strong> Il file deve essere quello scaricato direttamente da Instagram, non modificato e non rinominato.
+              </p>
+            </div>
           </div>
 
           <div class="results-container">
             <div class="results-header">
-              <h3 style="margin:0; color:white;">📊 Risultati</h3>
+              <h3 style="margin:0; color:white;">📊 Risultati dell'Analisi</h3>
             </div>
-            <div class="results" id="results" aria-live="polite" style="padding:20px; min-height:150px;">
-              <div style="text-align: center; padding: 30px 20px;">
-                <div style="font-size: 2.5em; margin-bottom: 15px; color: #405DE6;">📁</div>
-                <p style="margin: 0 0 10px 0;"><strong>Carica il file per iniziare l'analisi</strong></p>
-                <p style="margin: 0; font-size: 0.9em; color: #666;">Qui vedrai la lista di chi non ti segue</p>
+            <div class="results" id="results" aria-live="polite" style="padding:20px; min-height:200px;">
+              <div style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 3em; margin-bottom: 20px; color: #405DE6;">📁</div>
+                <p style="margin: 0 0 15px 0;"><strong>Carica il tuo file ZIP per iniziare l'analisi</strong></p>
+                <p style="margin: 0; font-size: 0.95em; color: #666; max-width: 500px; margin: 0 auto;">
+                  Dopo aver caricato il file, vedrai qui la lista completa delle persone che non ti seguono più, con statistiche dettagliate.
+                </p>
               </div>
             </div>
           </div>
@@ -287,22 +360,77 @@
 
         <!-- FAQ ESPANDIBILE -->
         <div class="expandable-header" onclick="toggleExpandable('faq')">
-          <span>❓ Domande frequenti</span>
+          <span>❓ Domande Frequenti - Tutto quello che devi sapere</span>
           <span class="expandable-icon" id="faq-icon">▼</span>
         </div>
         <div class="expandable-content" id="faq-content">
-          <div style="display: grid; gap: 12px;">
-            <div>
-              <strong>È sicuro?</strong>
-              <p style="margin: 5px 0 0 0; font-size: 0.9em;">Sì, non accediamo al tuo account. Elaborazione offline sul tuo dispositivo.</p>
+          <div style="padding: 10px 0;">
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin-top: 0; color: #405DE6;">🔒 Sicurezza e Privacy</h4>
+              <p><strong>I miei dati sono veramente al sicuro?</strong></p>
+              <p>Sì, assolutamente. Il nostro sistema è progettato per la massima privacy:</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Nessun accesso al tuo account Instagram</strong> - non chiediamo mai password o accesso</li>
+                <li><strong>Elaborazione 100% offline</strong> - tutto avviene nel tuo browser, nessun dato inviato ai server</li>
+                <li><strong>Dati non salvati</strong> - i tuoi file non vengono memorizzati da nessuna parte</li>
+                <li><strong>Nessun tracciamento</strong> - non usiamo cookie di profilazione o sistemi di tracciamento</li>
+              </ul>
             </div>
-            <div>
-              <strong>Costa qualcosa?</strong>
-              <p style="margin: 5px 0 0 0; font-size: 0.9em;">No, è completamente gratuito.</p>
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin-top: 0; color: #405DE6;">💳 Costi e Funzionalità</h4>
+              <p><strong>Quanto costa? Ci sono limiti?</strong></p>
+              <p>Il servizio è <strong>completamente gratuito</strong> senza limitazioni:</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Nessun costo nascosto, nessun abbonamento</li>
+                <li>Nessuna registrazione richiesta</li>
+                <li>Puoi analizzare file di qualsiasi dimensione</li>
+                <li>Numero illimitato di analisi</li>
+                <li>Manteniamo il servizio tramite pubblicità non invasiva</li>
+              </ul>
             </div>
-            <div>
-              <strong>Funziona su mobile?</strong>
-              <p style="margin: 5px 0 0 0; font-size: 0.9em;">Sì, su tutti i dispositivi moderni.</p>
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin-top: 0; color: #405DE6;">📱 Compatibilità</h4>
+              <p><strong>Funziona su tutti i dispositivi?</strong></p>
+              <p>Sì, lo strumento è completamente responsive:</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li><strong>Computer:</strong> Windows, macOS, Linux (Chrome, Firefox, Safari, Edge)</li>
+                <li><strong>Smartphone:</strong> iOS e Android (tutti i browser moderni)</li>
+                <li><strong>Tablet:</strong> iPad, Android tablet</li>
+                <li><strong>Non richiede app</strong> - funziona direttamente nel browser</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin-top: 0; color: #405DE6;">🎯 Precisione dei Risultati</h4>
+              <p><strong>Quanto sono accurati i risultati?</strong></p>
+              <p>I risultati sono <strong>100% accurati</strong> perché:</p>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Usiamo i dati ufficiali forniti da Instagram</li>
+                <li>Analizziamo ogni voce nei file JSON originali</li>
+                <li>Confrontiamo direttamente le liste di following e followers</li>
+                <li>Filtriamo automaticamente account inattivi e sospetti</li>
+              </ul>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="margin-top: 0; color: #405DE6;">⚙️ Problemi Tecnici</h4>
+              <p><strong>Cosa fare se il file non viene analizzato?</strong></p>
+              <p>Se incontri problemi:</p>
+              <ol style="margin: 10px 0; padding-left: 20px;">
+                <li>Verifica di aver esportato correttamente con le impostazioni sopra indicate</li>
+                <li>Assicurati che il file non sia corrotto o incompleto</li>
+                <li>Prova a riesportare i dati da Instagram</li>
+                <li>Controlla di avere una connessione internet stabile per caricare il file</li>
+                <li>Prova con un browser diverso (Chrome, Firefox, Safari)</li>
+              </ol>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+              <p style="margin: 0; font-weight: 600;">Hai ancora domande?</p>
+              <p style="margin: 10px 0 0 0; font-size: 0.9em;">Contattaci tramite la pagina <a href="contact.html">Contatti</a> per assistenza personalizzata.</p>
             </div>
           </div>
         </div>
@@ -321,11 +449,14 @@
         <footer style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
           <p style="margin: 0 0 10px 0; color: #666;">&copy; 2024 Instagram Follower Tracker</p>
           <div class="footer-links">
-            <a href="privacy-policy.html">Privacy</a>
-            <a href="terms-of-service.html">Termini</a>
-            <a href="contact.html">Contatti</a>
+            <a href="privacy-policy.html">Informativa Privacy</a>
+            <a href="terms-of-service.html">Termini di Servizio</a>
+            <a href="contact.html">Contatti e Supporto</a>
           </div>
-          <p style="margin: 10px 0 0 0; font-size: 0.8em; color: #999;">Non affiliato con Instagram o Meta</p>
+          <p style="margin: 15px 0 0 0; font-size: 0.85em; color: #999;">
+            Questo strumento non è affiliato, associato, autorizzato, sostenuto o in alcun modo connesso con Instagram o Meta Platforms.<br>
+            Instagram è un marchio registrato di Meta Platforms, Inc.
+          </p>
         </footer>
       </div>
     </div>
