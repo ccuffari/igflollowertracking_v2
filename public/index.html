@@ -2,14 +2,12 @@
 <html lang="it" itemscope itemtype="https://schema.org/WebApplication">
 
 <head>
-  <!-- Meta base -->
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Instagram Follower Tracker - Scopri Chi Non Ti Segue</title>
   <meta name="description" content="Scopri chi non ti segue più su Instagram. Carica il tuo file ZIP esportato e ottieni l'analisi istantanea. Privacy garantita, completamente gratuito.">
   
-  <!-- CSS -->
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-base.css">
   <link rel="stylesheet" href="css/02-layout.css">
@@ -21,14 +19,11 @@
   <link rel="stylesheet" href="css/08-responsive.css">
   <link rel="stylesheet" href="css/general.css">
 
-  <!-- AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753"
-    crossorigin="anonymous"></script>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
 
   <script>
     (function () {
       if (document.compatMode !== 'CSS1Compat') {
-        console.warn('AVVISO: document.compatMode =', document.compatMode, '- la pagina è in Quirks Mode.');
         window.__PAGE_IN_QUIRKS = true;
       } else {
         window.__PAGE_IN_QUIRKS = false;
@@ -37,7 +32,6 @@
   </script>
   
   <style>
-    /* Nuovi stili per elementi Instagram */
     .ig-gradient {
       background: linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D, #F56040, #F77737, #FCAF45, #FFDC80);
       -webkit-background-clip: text;
@@ -52,6 +46,7 @@
       border-radius: 10px;
       font-weight: 600;
       transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
     }
     
     .ig-btn:hover {
@@ -59,43 +54,42 @@
       box-shadow: 0 6px 20px rgba(131, 58, 180, 0.3);
     }
     
-    .expandable-section {
-      background: #f8f9fa;
-      border-radius: 12px;
-      margin: 20px 0;
-      overflow: hidden;
-      border: 1px solid #e0e0e0;
-    }
-    
     .expandable-header {
-      padding: 18px 20px;
+      padding: 15px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-weight: 600;
       color: #333;
-      background: white;
+      background: #fafafa;
+      border-radius: 8px;
+      margin: 10px 0;
+      border: 1px solid #e0e0e0;
+      transition: background 0.2s;
     }
     
     .expandable-header:hover {
-      background: #f9f9f9;
+      background: #f0f0f0;
     }
     
     .expandable-content {
-      padding: 0 20px;
       max-height: 0;
       overflow: hidden;
-      transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+      transition: max-height 0.3s ease-out;
+      background: white;
+      border-radius: 0 0 8px 8px;
     }
     
     .expandable-content.open {
-      padding: 20px;
-      max-height: 1000px;
+      max-height: 500px;
+      padding: 15px;
+      border: 1px solid #e0e0e0;
+      border-top: none;
+      margin-bottom: 10px;
     }
     
     .expandable-icon {
-      font-size: 1.2em;
       transition: transform 0.3s;
     }
     
@@ -103,54 +97,54 @@
       transform: rotate(180deg);
     }
     
-    .simple-list {
-      list-style: none;
-      padding-left: 0;
-    }
-    
-    .simple-list li {
-      padding: 8px 0;
-      border-bottom: 1px solid #eee;
-      display: flex;
-      align-items: center;
-    }
-    
-    .simple-list li:before {
-      content: "✓";
-      color: #405DE6;
-      font-weight: bold;
-      margin-right: 10px;
-    }
-    
-    .feature-badge {
-      display: inline-block;
-      background: linear-gradient(45deg, #405DE6, #833AB4);
-      color: white;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.85em;
-      font-weight: 500;
-      margin: 0 5px 5px 0;
-    }
-    
-    .upload-highlight {
-      border: 2px solid;
+    .upload-section {
+      border: 2px dashed;
       border-image: linear-gradient(45deg, #405DE6, #833AB4, #E1306C) 1;
-      animation: pulse 2s infinite;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 25px 0;
+      position: relative;
     }
     
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(64, 93, 230, 0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(64, 93, 230, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(64, 93, 230, 0); }
+    .upload-section:before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C);
+      border-radius: 14px;
+      z-index: -1;
+      opacity: 0.1;
     }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    
+    .pill {
+      background: #e9ecef;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      display: inline-block;
+    }
+    
+    .pill.success { background: #d4edda; color: #155724; }
+    .pill.processing { background: #fff3cd; color: #856404; }
+    .pill.error { background: #f8d7da; color: #721c24; }
     
     .results-container {
       background: white;
       border-radius: 12px;
       border: 1px solid #ddd;
-      padding: 0;
       overflow: hidden;
+      margin-top: 20px;
     }
     
     .results-header {
@@ -159,9 +153,43 @@
       padding: 15px 20px;
     }
     
+    .footer-links {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    .footer-links a {
+      color: #666;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    
+    .footer-links a:hover {
+      color: #405DE6;
+    }
+    
+    .feature-tag {
+      display: inline-block;
+      background: rgba(64, 93, 230, 0.1);
+      color: #405DE6;
+      padding: 4px 10px;
+      border-radius: 15px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin: 0 5px 5px 0;
+    }
+    
     @media (max-width: 768px) {
-      .expandable-header {
-        padding: 15px;
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .controls .btn {
+        width: 100%;
+        text-align: center;
       }
     }
   </style>
@@ -177,7 +205,7 @@
           <div class="logo" aria-hidden="true" style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C); color: white;">IG</div>
           <div style="flex:1;min-width:0">
             <h1 itemprop="headline" class="ig-gradient">Instagram Follower Tracker</h1>
-            <p class="subtitle">Scarica i tuoi dati da Instagram, carica il file e scopri subito chi non ti segue più</p>
+            <p class="subtitle">Scopri chi non ti segue più su Instagram in pochi secondi</p>
           </div>
         </header>
 
@@ -192,72 +220,63 @@
         </div>
 
         <!-- INTRO BREVE -->
-        <div class="content-section">
-          <h2>Analizza i tuoi follower in modo semplice e sicuro</h2>
-          <p>Questo strumento analizza i dati che Instagram ti permette di esportare. <strong>Nessun accesso al tuo account</strong>, elaborazione completamente <strong>offline sul tuo dispositivo</strong>.</p>
-          
-          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
-            <span class="feature-badge">🔒 Privacy garantita</span>
-            <span class="feature-badge">⚡ Risultati immediati</span>
-            <span class="feature-badge">💰 Completamente gratuito</span>
-            <span class="feature-badge">📱 Funziona su tutti i dispositivi</span>
+        <div style="text-align: center; margin: 20px 0;">
+          <p>Carica il file ZIP esportato da Instagram e scopri subito chi non ti segue più.</p>
+          <div style="margin: 15px 0;">
+            <span class="feature-tag">🔒 Privacy garantita</span>
+            <span class="feature-tag">⚡ Risultati immediati</span>
+            <span class="feature-tag">💰 100% gratuito</span>
           </div>
         </div>
 
         <!-- GUIDA ESPANDIBILE -->
-        <div class="expandable-section">
-          <div class="expandable-header" onclick="toggleExpandable('guide')">
-            <span>📚 Come esportare i dati da Instagram (3 passaggi)</span>
-            <span class="expandable-icon" id="guide-icon">▼</span>
-          </div>
-          <div class="expandable-content" id="guide-content">
-            <ol style="padding-left: 20px; margin: 0;">
-              <li><strong>Apri Instagram</strong> → Menu (tre linee) → <strong>"Impostazioni e privacy"</strong></li>
-              <li>Clicca <strong>"Scarica le tue informazioni"</strong> → Seleziona solo <strong>"Followers e following"</strong></li>
-              <li>Scegli <strong>formato JSON</strong> → Attendi l'email → <strong>Scarica il file ZIP</strong></li>
-            </ol>
-            <p style="margin-top: 15px; font-size: 0.9em; color: #666;">Il file arriverà via email entro 48 ore (di solito pochi minuti).</p>
-          </div>
+        <div class="expandable-header" onclick="toggleExpandable('guide')">
+          <span>📚 Come esportare i dati da Instagram</span>
+          <span class="expandable-icon" id="guide-icon">▼</span>
+        </div>
+        <div class="expandable-content" id="guide-content">
+          <ol style="padding-left: 20px; margin: 0;">
+            <li><strong>Apri Instagram</strong> → Menu → <strong>"Impostazioni e privacy"</strong></li>
+            <li>Clicca <strong>"Scarica le tue informazioni"</strong></li>
+            <li>Seleziona solo <strong>"Followers e following"</strong></li>
+            <li>Scegli <strong>formato JSON</strong> e attendi l'email</li>
+          </ol>
+          <p style="margin-top: 10px; font-size: 0.85em; color: #666;">Riceverai un file ZIP da caricare qui sotto.</p>
         </div>
 
         <!-- UPLOAD SECTION -->
-        <div class="content-section upload-highlight">
-          <h3>Carica il tuo file ZIP</h3>
-          <p style="margin-bottom: 20px;">Trascina qui il file ZIP che hai ricevuto da Instagram o clicca per selezionarlo.</p>
+        <div class="upload-section">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 10px 0;">Carica il tuo file ZIP</h3>
+            <p style="margin: 0; color: #666;">Trascina qui il file o clicca per selezionarlo</p>
+          </div>
 
-          <!-- DROP ZONE / UPLOAD -->
-          <div class="drop" id="dropzone" aria-label="Carica ZIP esportazione Instagram">
-            <div class="controls" style="display:flex;gap:8px;align-items:center; flex-wrap: wrap;">
-              <label class="btn ig-btn" for="zipfile" id="selectZipLabel"
-                style="padding:12px 24px;border-radius:6px;cursor:pointer">📁 Seleziona File ZIP</label>
-              <input id="zipfile" type="file" accept=".zip" />
-              <button id="resetBtn" class="btn ghost" style="padding:12px 24px;border-radius:6px">🔄 Reset</button>
+          <div class="drop" id="dropzone">
+            <div class="controls">
+              <label class="btn ig-btn" for="zipfile" id="selectZipLabel" style="padding:12px 24px;">📁 Seleziona ZIP</label>
+              <input id="zipfile" type="file" accept=".zip" style="display:none">
+              <button id="resetBtn" class="btn ghost" style="padding:12px 24px;">🔄 Reset</button>
               <div style="flex:1;min-width:10px"></div>
-              <div class="pill small warning" id="statusPill">Pronto</div>
-            </div>
-
-            <div class="small" style="margin-top:15px;">
-              <p>🔒 <strong>Sicurezza:</strong> I tuoi dati non vengono inviati a server esterni. Tutto rimane sul tuo dispositivo.</p>
+              <div class="pill" id="statusPill">Pronto</div>
             </div>
           </div>
 
-          <!-- RISULTATI -->
-          <div class="results-container" style="margin-top:25px;">
+          <div class="results-container">
             <div class="results-header">
-              <h3 style="margin:0; color:white;">📊 Risultati dell'analisi</h3>
+              <h3 style="margin:0; color:white;">📊 Risultati</h3>
             </div>
-            <div class="results" id="results" aria-live="polite" style="padding:20px; min-height:200px;">
-              <div style="text-align: center; padding: 40px 20px;">
-                <div style="font-size: 3em; margin-bottom: 20px;">📁</div>
-                <p><strong>Carica il tuo file ZIP per vedere l'analisi</strong></p>
-                <p class="small">Qui apparirà la lista delle persone che non ti seguono, con statistiche dettagliate.</p>
+            <div class="results" id="results" aria-live="polite" style="padding:20px; min-height:150px;">
+              <div style="text-align: center; padding: 30px 20px;">
+                <div style="font-size: 2.5em; margin-bottom: 15px; color: #405DE6;">📁</div>
+                <p style="margin: 0 0 10px 0;"><strong>Carica il file per iniziare l'analisi</strong></p>
+                <p style="margin: 0; font-size: 0.9em; color: #666;">Qui vedrai la lista di chi non ti segue</p>
               </div>
             </div>
           </div>
         </div>
 
         <!-- IN-CONTENT AD -->
-        <div class="ad-container ad-placeholder" id="ad-incontent" data-min-width="320" aria-hidden="true">
+        <div class="ad-container" id="ad-incontent" data-min-width="320" aria-hidden="true">
           <ins class="adsbygoogle"
                style="display:block"
                data-ad-client="ca-pub-1948802026580753"
@@ -267,35 +286,29 @@
         </div>
 
         <!-- FAQ ESPANDIBILE -->
-        <div class="expandable-section">
-          <div class="expandable-header" onclick="toggleExpandable('faq')">
-            <span>❓ Domande frequenti</span>
-            <span class="expandable-icon" id="faq-icon">▼</span>
-          </div>
-          <div class="expandable-content" id="faq-content">
-            <div style="display: grid; gap: 15px;">
-              <div>
-                <h4 style="margin: 0 0 5px 0;">È sicuro?</h4>
-                <p class="small">Sì, non accediamo al tuo account Instagram. Usi solo i dati che Instagram ti permette di esportare.</p>
-              </div>
-              <div>
-                <h4 style="margin: 0 0 5px 0;">Costa qualcosa?</h4>
-                <p class="small">No, è completamente gratuito. Manteniamo il servizio attraverso annunci non invasivi.</p>
-              </div>
-              <div>
-                <h4 style="margin: 0 0 5px 0;">Funziona su mobile?</h4>
-                <p class="small">Sì, funziona su smartphone, tablet e computer senza bisogno di installare app.</p>
-              </div>
-              <div>
-                <h4 style="margin: 0 0 5px 0;">Cosa posso fare con i risultati?</h4>
-                <p class="small">Puoi vedere chi non ti segue più e prendere decisioni sulla gestione dei tuoi follower.</p>
-              </div>
+        <div class="expandable-header" onclick="toggleExpandable('faq')">
+          <span>❓ Domande frequenti</span>
+          <span class="expandable-icon" id="faq-icon">▼</span>
+        </div>
+        <div class="expandable-content" id="faq-content">
+          <div style="display: grid; gap: 12px;">
+            <div>
+              <strong>È sicuro?</strong>
+              <p style="margin: 5px 0 0 0; font-size: 0.9em;">Sì, non accediamo al tuo account. Elaborazione offline sul tuo dispositivo.</p>
+            </div>
+            <div>
+              <strong>Costa qualcosa?</strong>
+              <p style="margin: 5px 0 0 0; font-size: 0.9em;">No, è completamente gratuito.</p>
+            </div>
+            <div>
+              <strong>Funziona su mobile?</strong>
+              <p style="margin: 5px 0 0 0; font-size: 0.9em;">Sì, su tutti i dispositivi moderni.</p>
             </div>
           </div>
         </div>
 
         <!-- FOOTER AD -->
-        <div class="ad-container ad-placeholder" id="ad-footer" data-min-width="320" aria-hidden="true">
+        <div class="ad-container" id="ad-footer" data-min-width="320" aria-hidden="true">
           <ins class="adsbygoogle"
                style="display:block"
                data-ad-client="ca-pub-1948802026580753"
@@ -304,46 +317,44 @@
                data-full-width-responsive="true"></ins>
         </div>
 
-        <!-- FOOTER SEMPLIFICATO -->
-        <footer class="site-footer">
-          <div class="footer-content">
-            <p>&copy; 2024 Instagram Follower Tracker</p>
-            <nav class="footer-links" style="margin-top: 10px;">
-              <a href="/privacy">Privacy</a> |
-              <a href="/terms">Termini</a> |
-              <a href="/contact">Contatti</a>
-            </nav>
-            <p class="small" style="margin-top: 10px; color: #666;">Non affiliato con Instagram o Meta.</p>
+        <!-- FOOTER -->
+        <footer style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p style="margin: 0 0 10px 0; color: #666;">&copy; 2024 Instagram Follower Tracker</p>
+          <div class="footer-links">
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Termini</a>
+            <a href="contact.html">Contatti</a>
           </div>
+          <p style="margin: 10px 0 0 0; font-size: 0.8em; color: #999;">Non affiliato con Instagram o Meta</p>
         </footer>
       </div>
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="scripts/ads.js" defer></script>
   <script src="scripts/app.js" defer></script>
   
   <script>
-    // Funzione per espandere/chiudere le sezioni
     function toggleExpandable(id) {
       const content = document.getElementById(`${id}-content`);
       const icon = document.getElementById(`${id}-icon`);
       
-      content.classList.toggle('open');
-      icon.classList.toggle('open');
+      if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        icon.classList.remove('open');
+      } else {
+        content.classList.add('open');
+        icon.classList.add('open');
+      }
     }
     
-    // Inizializzazione AdSense
     document.addEventListener('DOMContentLoaded', function() {
       if (!window.__PAGE_IN_QUIRKS) {
         setTimeout(function() {
           try {
             (adsbygoogle = window.adsbygoogle || []).push({});
-          } catch (e) {
-            console.warn('AdSense initialization:', e);
-          }
-        }, 1500);
+          } catch (e) {}
+        }, 1000);
       }
     });
   </script>
