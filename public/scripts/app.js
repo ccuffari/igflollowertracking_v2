@@ -9,23 +9,37 @@ document.addEventListener('DOMContentLoaded', function() {
   function cleanInstagramUsername(username) {
     if (!username) return null;
     
-    // Converti in stringa e pulisci
     const cleanUsername = String(username).trim().toLowerCase();
-    
-    // Rimuovi caratteri non validi per Instagram
     const validUsername = cleanUsername.replace(/[^a-z0-9._]/g, '');
     
     if (validUsername.length < CONFIG.MIN_USERNAME_LENGTH || 
         validUsername.length > CONFIG.MAX_USERNAME_LENGTH) return null;
     
-    // Controlla formato Instagram base
     if (!/^[a-z0-9._]+$/.test(validUsername)) return null;
     
     return validUsername;
   }
 
-  // ========== ANALISI FOLLOWING ==========
-  function extractUsernamesFromFollowingJson(jsonData) {
+  function extractUsernameFromHref(href) {
+    if (!href) return null;
+    
+    const hrefStr = String(href).toLowerCase();
+    const patterns = [
+      /instagram\.com\/_u\/([a-z0-9._]+)/i,
+      /instagram\.com\/([a-z0-9._]+)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const match = hrefStr.match(pattern);
+      if (match && match[1]) {
+        return cleanInstagramUsername(match[1]);
+      }
+    }
+    return null;
+  }
+
+  // ========== ANALISI FOLLOWING (relationships_following) ==========
+  function extractUsernamesFromFollowingFile(jsonData) {
     const usernames = new Set();
     
     try {
@@ -33,13 +47,15 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Following.json ha questa struttura: {"relationships_following": [...]}
       if (data.relationships_following && Array.isArray(data.relationships_following)) {
-        data.relationships_following.forEach(item => {
+        console.log(`Trovati ${data.relationships_following.length} oggetti in relationships_following`);
+        
+        data.relationships_following.forEach((item, index) => {
           // PRIMA PRIORITÀ: campo "title" (contiene l'username)
           if (item.title) {
             const username = cleanInstagramUsername(item.title);
             if (username) {
               usernames.add(username);
-              return; // Usiamo il title come fonte principale
+              return;
             }
           }
           
@@ -47,25 +63,14 @@ document.addEventListener('DOMContentLoaded', function() {
           if (item.string_list_data && Array.isArray(item.string_list_data)) {
             item.string_list_data.forEach(stringItem => {
               if (stringItem.href) {
-                // Estrai username da URL come instagram.com/_u/username
-                const href = stringItem.href.toLowerCase();
-                const patterns = [
-                  /instagram\.com\/_u\/([a-z0-9._]+)/i,
-                  /instagram\.com\/([a-z0-9._]+)/i
-                ];
-                
-                for (const pattern of patterns) {
-                  const match = href.match(pattern);
-                  if (match && match[1]) {
-                    const username = cleanInstagramUsername(match[1]);
-                    if (username) usernames.add(username);
-                    break;
-                  }
-                }
+                const username = extractUsernameFromHref(stringItem.href);
+                if (username) usernames.add(username);
               }
             });
           }
         });
+      } else {
+        console.error("Struttura following.json non valida. relationships_following non trovato.");
       }
       
       console.log(`Following estratti: ${usernames.size}`);
@@ -77,8 +82,8 @@ document.addEventListener('DOMContentLoaded', function() {
     return Array.from(usernames);
   }
 
-  // ========== ANALISI FOLLOWERS ==========
-  function extractUsernamesFromFollowersJson(jsonData) {
+  // ========== ANALISI FOLLOWERS (array di oggetti) ==========
+  function extractUsernamesFromFollowersFile(jsonData) {
     const usernames = new Set();
     
     try {
@@ -86,7 +91,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Follower.json ha questa struttura: [ {...}, {...} ] (array di oggetti)
       if (Array.isArray(data)) {
-        data.forEach(item => {
+        console.log(`Trovati ${data.length} oggetti in followers array`);
+        
+        data.forEach((item, index) => {
           // Cerca in string_list_data -> value (questo è il campo per followers)
           if (item.string_list_data && Array.isArray(item.string_list_data)) {
             item.string_list_data.forEach(stringItem => {
@@ -101,24 +108,14 @@ document.addEventListener('DOMContentLoaded', function() {
               
               // Fallback: campo "href"
               if (stringItem.href) {
-                const href = stringItem.href.toLowerCase();
-                const patterns = [
-                  /instagram\.com\/([a-z0-9._]+)/i,
-                  /instagram\.com\/_u\/([a-z0-9._]+)/i
-                ];
-                
-                for (const pattern of patterns) {
-                  const match = href.match(pattern);
-                  if (match && match[1]) {
-                    const username = cleanInstagramUsername(match[1]);
-                    if (username) usernames.add(username);
-                    break;
-                  }
-                }
+                const username = extractUsernameFromHref(stringItem.href);
+                if (username) usernames.add(username);
               }
             });
           }
         });
+      } else {
+        console.error("Struttura followers.json non valida. Non è un array.");
       }
       
       console.log(`Followers estratti: ${usernames.size}`);
@@ -163,22 +160,12 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="font-size: 3em; margin-bottom: 15px;">🔍</div>
         <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">Analisi in corso...</div>
         <div style="color: #666; font-size: 0.9em; line-height: 1.5;">
-          Estrazione dei dati dal file ZIP<br>
-          <span id="progressText">Caricamento file...</span>
-        </div>
-        <div style="width: 200px; height: 4px; background: #f0f0f0; margin: 20px auto; border-radius: 2px;">
-          <div id="progressBar" style="width: 0%; height: 100%; background: #0095f6; border-radius: 2px; transition: width 0.3s;"></div>
+          Estrazione dei dati dal file ZIP
         </div>
       </div>
     `;
     
     try {
-      const progressText = document.getElementById('progressText');
-      const progressBar = document.getElementById('progressBar');
-      
-      progressText.textContent = 'Lettura file ZIP...';
-      progressBar.style.width = '25%';
-      
       const arrayBuffer = await file.arrayBuffer();
       const zip = await window.JSZip.loadAsync(arrayBuffer);
       
@@ -201,41 +188,26 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       
-      progressText.textContent = `File trovati: ${followingFile ? '1 following' : '0 following'}, ${followerFiles.length} followers`;
-      progressBar.style.width = '40%';
+      console.log(`File trovati: following=${followingFile ? 'Sì' : 'No'}, followers=${followerFiles.length}`);
       
       if (!followingFile) throw new Error('File "following.json" non trovato nel ZIP');
       if (followerFiles.length === 0) throw new Error('Nessun file "follower" trovato nel ZIP');
       
       // Leggi file following
-      progressText.textContent = 'Analisi account che segui...';
-      progressBar.style.width = '50%';
-      
       const followingContent = await followingFile.async('string');
-      const followingUsernames = extractUsernamesFromFollowingJson(followingContent);
+      const followingUsernames = extractUsernamesFromFollowingFile(followingContent);
       
       // Leggi tutti i file follower
-      progressText.textContent = 'Analisi account che ti seguono...';
-      progressBar.style.width = '70%';
-      
       const allFollowers = new Set();
-      for (let i = 0; i < followerFiles.length; i++) {
-        const followerFile = followerFiles[i];
+      for (const followerFile of followerFiles) {
         const followerContent = await followerFile.async('string');
-        const followerUsernames = extractUsernamesFromFollowersJson(followerContent);
+        const followerUsernames = extractUsernamesFromFollowersFile(followerContent);
         followerUsernames.forEach(u => allFollowers.add(u));
-        
-        // Aggiorna progresso
-        const progress = 70 + (i / followerFiles.length * 20);
-        progressBar.style.width = `${progress}%`;
       }
       
       const followersArray = Array.from(allFollowers);
       
       // Trova chi non segue
-      progressText.textContent = 'Confronto account...';
-      progressBar.style.width = '95%';
-      
       const followersSet = new Set(followersArray);
       const notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
       
@@ -244,8 +216,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       statusPill.textContent = '✅ Completo';
       statusPill.className = 'pill success';
-      
-      progressBar.style.width = '100%';
       
     } catch (error) {
       console.error('Errore:', error);
@@ -297,17 +267,12 @@ document.addEventListener('DOMContentLoaded', function() {
             </a>
           </div>
         </div>
-        <div style="flex-shrink: 0; display: flex; gap: 8px; margin-left: 10px;">
-          <span style="background: #ff4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold;">
-            #${index + 1}
-          </span>
-          <button onclick="window.open('https://instagram.com/${username}', '_blank')" 
-                  style="flex-shrink: 0; padding: 6px 12px; background: #0095f6; color: white; border: none; 
-                         border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500; transition: background 0.2s;"
-                  onmouseover="this.style.background='#0081d6'" onmouseout="this.style.background='#0095f6'">
-            Vedi
-          </button>
-        </div>
+        <button onclick="window.open('https://instagram.com/${username}', '_blank')" 
+                style="flex-shrink: 0; padding: 6px 12px; background: #0095f6; color: white; border: none; 
+                       border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500; transition: background 0.2s;"
+                onmouseover="this.style.background='#0081d6'" onmouseout="this.style.background='#0095f6'">
+          Vedi
+        </button>
       </li>
     `).join('');
     
@@ -419,18 +384,6 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         `}
-        
-        <!-- Informazioni -->
-        <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f8f9fa, #ffffff); 
-                    border-radius: 12px; font-size: 0.9em; color: #666; border: 1px solid #efefef;">
-          <div style="font-weight: 700; margin-bottom: 12px; color: #262626; font-size: 1em;">ℹ️ Informazioni tecniche</div>
-          <div style="line-height: 1.6;">
-            • <strong>Following:</strong> ${followingCount} account estratti dal campo "title" in relationships_following<br>
-            • <strong>Followers:</strong> ${followersCount} account estratti dal campo "value" in string_list_data<br>
-            • <strong>Non reciprocati:</strong> ${notFollowingBack.length} account che segui ma che non ti seguono<br>
-            • L'analisi è eseguita localmente nel tuo browser, nessun dato viene inviato a server esterni
-          </div>
-        </div>
       </div>
     `;
   }
@@ -452,28 +405,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 1.1em;">
           Scopri chi non ti segue su Instagram<br>
           analizzando i tuoi dati scaricati dalla piattaforma
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #f8f9fa, #ffffff); padding: 30px; border-radius: 16px; 
-                    text-align: left; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 30px; border: 1px solid #efefef;">
-          <div style="font-weight: 700; margin-bottom: 20px; color: #262626; font-size: 1.2em; display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 1.5em;">📥</span> Come ottenere i dati da Instagram
-          </div>
-          <ol style="margin: 0; padding-left: 22px; font-size: 0.95em; line-height: 1.8;">
-            <li style="margin-bottom: 12px;">Vai su <strong>Instagram Web</strong> (versione desktop del browser)</li>
-            <li style="margin-bottom: 12px;">Clicca sul tuo profilo → <strong>Impostazioni</strong> → <strong>Privacy e sicurezza</strong> → <strong>Dati personali</strong></li>
-            <li style="margin-bottom: 12px;">Scarica dati → Seleziona <strong>"Seguaci e seguendo"</strong> → Formato JSON</li>
-            <li>Riceverai un'email con il link per scaricare il file ZIP</li>
-          </ol>
-        </div>
-        
-        <div style="background: linear-gradient(135deg, #e8f4ff, #d4e7ff); padding: 20px; border-radius: 12px; 
-                    display: inline-block; border-left: 5px solid #0095f6;">
-          <div style="font-weight: 700; color: #0095f6; margin-bottom: 8px; font-size: 1.1em;">💡 Importante</div>
-          <div style="font-size: 0.9em; color: #37474f; line-height: 1.5;">
-            I dati devono essere scaricati da Instagram Desktop<br>
-            I file devono contenere following.json e followers_*.json
-          </div>
         </div>
       </div>
     `;
@@ -504,8 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
           e.preventDefault();
           dropzone.style.background = 'linear-gradient(135deg, #f0f8ff, #e3f2fd)';
           dropzone.style.borderColor = '#0095f6';
-          dropzone.style.transform = 'scale(1.02)';
-          dropzone.style.boxShadow = '0 4px 15px rgba(0,149,246,0.2)';
         });
       });
       
@@ -514,8 +443,6 @@ document.addEventListener('DOMContentLoaded', function() {
           e.preventDefault();
           dropzone.style.background = '';
           dropzone.style.borderColor = '';
-          dropzone.style.transform = '';
-          dropzone.style.boxShadow = '';
         });
       });
       
@@ -562,12 +489,6 @@ document.addEventListener('DOMContentLoaded', function() {
           Impossibile caricare le librerie necessarie.<br>
           Ricarica la pagina o controlla la connessione internet.
         </div>
-        <button onclick="window.location.reload()" 
-                style="padding: 12px 30px; background: #d32f2f; color: white; border: none; 
-                       border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: background 0.2s;"
-                onmouseover="this.style.background='#b71c1c'" onmouseout="this.style.background='#d32f2f'">
-          Ricarica la pagina
-        </button>
       </div>
     `;
   });
