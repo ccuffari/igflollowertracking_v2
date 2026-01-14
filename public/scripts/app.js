@@ -5,96 +5,124 @@ document.addEventListener('DOMContentLoaded', function() {
     MAX_USERNAME_LENGTH: 50
   };
 
-  // ========== FUNZIONI DI ESTRAZIONE ==========
+  // ========== FUNZIONI DI ESTRAZIONE SEMPLIFICATE ==========
   function cleanInstagramUsername(username) {
-    if (!username) return null;
+    if (!username || typeof username !== 'string') return null;
     
-    const cleanUsername = String(username).trim().toLowerCase();
-    const validUsername = cleanUsername.replace(/[^a-z0-9._]/g, '');
+    const cleanUsername = username.trim().toLowerCase();
     
-    if (validUsername.length < CONFIG.MIN_USERNAME_LENGTH || 
-        validUsername.length > CONFIG.MAX_USERNAME_LENGTH) return null;
+    // Controllo base di validità
+    if (cleanUsername.length < CONFIG.MIN_USERNAME_LENGTH || 
+        cleanUsername.length > CONFIG.MAX_USERNAME_LENGTH) return null;
     
-    if (!/^[a-z0-9._]+$/.test(validUsername)) return null;
+    // Solo caratteri validi per Instagram
+    if (!/^[a-z0-9._]+$/.test(cleanUsername)) return null;
     
-    return validUsername;
-  }
-
-  // ========== ANALISI FOLLOWING ==========
-  function extractUsernamesFromFollowingFile(jsonData) {
-    const usernames = new Set();
-    
-    try {
-      const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
-      
-      console.log("=== ANALISI FOLLOWING ===");
-      
-      // Following.json ha questa struttura: {"relationships_following": [...]}
-      if (data.relationships_following && Array.isArray(data.relationships_following)) {
-        console.log(`Trovati ${data.relationships_following.length} following nel file`);
-        
-        data.relationships_following.forEach((item, index) => {
-          // Il campo "title" contiene l'username
-          if (item.title && item.title.trim() !== "") {
-            const username = cleanInstagramUsername(item.title);
-            if (username) {
-              usernames.add(username);
-              console.log(`  [${index + 1}] Trovato: @${username}`);
-            }
-          }
-        });
-      } else {
-        console.error("ERRORE: relationships_following non trovato o non è un array");
-        console.log("Struttura del file:", data);
-      }
-      
-      console.log(`TOTALE following estratti: ${usernames.size}`);
-      console.log("=== FINE ANALISI FOLLOWING ===");
-      
-    } catch (error) {
-      console.error('Errore analisi following JSON:', error);
-    }
-    
-    return Array.from(usernames);
+    return cleanUsername;
   }
 
   // ========== ANALISI FOLLOWERS ==========
-  function extractUsernamesFromFollowersFile(jsonData) {
+  function extractFollowersUsernames(jsonData) {
     const usernames = new Set();
     
     try {
       const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       
       console.log("=== ANALISI FOLLOWERS ===");
+      console.log("Struttura dati:", Array.isArray(data) ? "Array" : typeof data);
       
-      // Follower.json ha questa struttura: [ {...}, {...} ] (array di oggetti)
       if (Array.isArray(data)) {
-        console.log(`Trovati ${data.length} followers nel file`);
+        console.log(`Numero elementi nell'array: ${data.length}`);
+        
+        let valoriTrovati = 0;
+        let valoriNonValidati = 0;
         
         data.forEach((item, index) => {
-          // Cerca in string_list_data -> value (contiene l'username)
           if (item.string_list_data && Array.isArray(item.string_list_data)) {
             item.string_list_data.forEach(stringItem => {
-              // PRIORITÀ: campo "value"
+              // ESTRAI DAL CAMPO "value" - SOLO QUESTO
               if (stringItem.value && stringItem.value.trim() !== "") {
                 const username = cleanInstagramUsername(stringItem.value);
                 if (username) {
                   usernames.add(username);
+                  valoriTrovati++;
+                  
+                  // Log dei primi 5 valori trovati
+                  if (valoriTrovati <= 5) {
+                    console.log(`  [${valoriTrovati}] Value trovato: "${stringItem.value}" -> "${username}"`);
+                  }
+                } else {
+                  valoriNonValidati++;
                 }
               }
             });
           }
         });
+        
+        console.log(`Valori "value" trovati: ${valoriTrovati}`);
+        console.log(`Valori non validati: ${valoriNonValidati}`);
       } else {
-        console.error("ERRORE: I followers non sono in un array");
-        console.log("Struttura del file:", data);
+        console.error("ERRORE: I followers non sono in un array. Struttura:", data);
       }
       
-      console.log(`TOTALE followers estratti: ${usernames.size}`);
+      console.log(`TOTALE followers unici estratti: ${usernames.size}`);
       console.log("=== FINE ANALISI FOLLOWERS ===");
       
     } catch (error) {
       console.error('Errore analisi followers JSON:', error);
+    }
+    
+    return Array.from(usernames);
+  }
+
+  // ========== ANALISI FOLLOWING ==========
+  function extractFollowingUsernames(jsonData) {
+    const usernames = new Set();
+    
+    try {
+      const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+      
+      console.log("=== ANALISI FOLLOWING ===");
+      console.log("Struttura dati:", typeof data);
+      console.log("Chiavi presenti:", Object.keys(data));
+      
+      // DEVE ESSERE PRESENTE relationships_following
+      if (data.relationships_following && Array.isArray(data.relationships_following)) {
+        console.log(`Numero elementi in relationships_following: ${data.relationships_following.length}`);
+        
+        let titoliTrovati = 0;
+        let titoliNonValidati = 0;
+        
+        data.relationships_following.forEach((item, index) => {
+          // ESTRAI DAL CAMPO "title" - SOLO QUESTO
+          if (item.title && item.title.trim() !== "") {
+            const username = cleanInstagramUsername(item.title);
+            if (username) {
+              usernames.add(username);
+              titoliTrovati++;
+              
+              // Log dei primi 5 titoli trovati
+              if (titoliTrovati <= 5) {
+                console.log(`  [${titoliTrovati}] Title trovato: "${item.title}" -> "${username}"`);
+              }
+            } else {
+              titoliNonValidati++;
+            }
+          }
+        });
+        
+        console.log(`Titoli "title" trovati: ${titoliTrovati}`);
+        console.log(`Titoli non validati: ${titoliNonValidati}`);
+      } else {
+        console.error("ERRORE: relationships_following non trovato o non è un array");
+        console.log("Contenuto del file:", JSON.stringify(data, null, 2).substring(0, 1000));
+      }
+      
+      console.log(`TOTALE following unici estratti: ${usernames.size}`);
+      console.log("=== FINE ANALISI FOLLOWING ===");
+      
+    } catch (error) {
+      console.error('Errore analisi following JSON:', error);
     }
     
     return Array.from(usernames);
@@ -121,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // ========== GESTIONE ZIP ==========
+  // ========== GESTIONE ZIP SEMPLIFICATA ==========
   async function processZipFile(file) {
     const results = document.getElementById('results');
     const statusPill = document.getElementById('statusPill');
@@ -142,69 +170,96 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       console.clear();
       console.log("=== INIZIO ANALISI ZIP ===");
+      console.log("File caricato:", file.name, `(${(file.size / 1024 / 1024).toFixed(2)} MB)`);
       
       const arrayBuffer = await file.arrayBuffer();
       const zip = await window.JSZip.loadAsync(arrayBuffer);
       
-      // CERCA I FILE CORRETTI
+      // CERCA SOLO I FILE CHE CI SERVONO
       let followingFile = null;
-      let followersFile = null;
+      const followerFiles = [];
       
       zip.forEach((path, entry) => {
         if (!entry.dir) {
           const lowerPath = path.toLowerCase();
-          console.log(`File trovato: ${path}`);
           
-          if (lowerPath.includes('following') && lowerPath.endsWith('.json') && 
-              !lowerPath.includes('following_hashtags') && 
-              !lowerPath.includes('unfollowed') &&
-              !lowerPath.includes('recently_unfollowed')) {
-            console.log(`✓ File following identificato: ${path}`);
+          // SOLO following.json (ignora tutti gli altri file)
+          if (lowerPath.endsWith('following.json')) {
+            console.log(`✓ Trovato following.json: ${path}`);
             followingFile = entry;
           }
           
-          if ((lowerPath.includes('follower') || lowerPath.includes('followers')) && 
-              lowerPath.endsWith('.json') && 
-              !lowerPath.includes('pending') &&
-              !lowerPath.includes('recent')) {
-            console.log(`✓ File followers identificato: ${path}`);
-            followersFile = entry;
+          // SOLO file che iniziano con followers (followers_1.json, followers_2.json, ecc.)
+          if (lowerPath.includes('followers') && lowerPath.endsWith('.json')) {
+            console.log(`✓ Trovato file follower: ${path}`);
+            followerFiles.push(entry);
           }
         }
       });
       
       console.log(`\nFile trovati:`);
-      console.log(`- Following: ${followingFile ? followingFile.name : 'NON TROVATO'}`);
-      console.log(`- Followers: ${followersFile ? followersFile.name : 'NON TROVATO'}`);
+      console.log(`- following.json: ${followingFile ? 'SÌ' : 'NO'}`);
+      console.log(`- File followers: ${followerFiles.length} (${followerFiles.map(f => f.name).join(', ')})`);
       
       if (!followingFile) throw new Error('File "following.json" non trovato nel ZIP');
-      if (!followersFile) throw new Error('File "followers.json" non trovato nel ZIP');
+      if (followerFiles.length === 0) throw new Error('Nessun file "followers" trovato nel ZIP');
       
-      // Leggi file following
-      console.log("\n=== LETTURA FOLLOWING.JSON ===");
+      // 1. LEGGI E ANALIZZA FOLLOWING
+      console.log("\n" + "=".repeat(50));
+      console.log("1. ANALISI FOLLOWING.JSON");
+      console.log("=".repeat(50));
+      
       const followingContent = await followingFile.async('string');
-      const followingUsernames = extractUsernamesFromFollowingFile(followingContent);
+      console.log(`Dimensione file: ${followingContent.length} caratteri`);
+      console.log("Prime 500 caratteri del file:", followingContent.substring(0, 500));
       
-      // Leggi file followers
-      console.log("\n=== LETTURA FOLLOWERS.JSON ===");
-      const followersContent = await followersFile.async('string');
-      const followersUsernames = extractUsernamesFromFollowersFile(followersContent);
+      const followingUsernames = extractFollowingUsernames(followingContent);
       
-      console.log("\n=== RISULTATI FINALI ===");
+      // 2. LEGGI E ANALIZZA TUTTI I FILE FOLLOWERS
+      console.log("\n" + "=".repeat(50));
+      console.log("2. ANALISI FILE FOLLOWERS");
+      console.log("=".repeat(50));
+      
+      const allFollowers = new Set();
+      for (const followerFile of followerFiles) {
+        console.log(`\n--- Analisi file: ${followerFile.name} ---`);
+        const followerContent = await followerFile.async('string');
+        console.log(`Dimensione file: ${followerContent.length} caratteri`);
+        
+        const followerUsernames = extractFollowersUsernames(followerContent);
+        console.log(`Aggiunti ${followerUsernames.length} username da questo file`);
+        
+        followerUsernames.forEach(u => allFollowers.add(u));
+      }
+      
+      const followersArray = Array.from(allFollowers);
+      
+      // 3. RISULTATI E DIFF
+      console.log("\n" + "=".repeat(50));
+      console.log("3. RISULTATI FINALI");
+      console.log("=".repeat(50));
+      
       console.log(`Following estratti: ${followingUsernames.length}`);
-      console.log(`Followers estratti: ${followersUsernames.length}`);
-      console.log("Primi 10 following:", followingUsernames.slice(0, 10));
-      console.log("Primi 10 followers:", followersUsernames.slice(0, 10));
+      console.log(`Followers estratti: ${followersArray.length}`);
       
-      // Trova chi non segue
-      const followersSet = new Set(followersUsernames);
+      console.log("\nPrimi 10 following:");
+      followingUsernames.slice(0, 10).forEach((u, i) => console.log(`  ${i+1}. @${u}`));
+      
+      console.log("\nPrimi 10 followers:");
+      followersArray.slice(0, 10).forEach((u, i) => console.log(`  ${i+1}. @${u}`));
+      
+      // 4. TROVA CHI NON SEGUE
+      const followersSet = new Set(followersArray);
       const notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
       
-      console.log(`Non following back: ${notFollowingBack.length}`);
-      console.log("Primi 10 non following back:", notFollowingBack.slice(0, 10));
+      console.log(`\nNon following back: ${notFollowingBack.length}`);
+      if (notFollowingBack.length > 0) {
+        console.log("Primi 10 non following back:");
+        notFollowingBack.slice(0, 10).forEach((u, i) => console.log(`  ${i+1}. @${u}`));
+      }
       
-      // Mostra risultati
-      displayResults(notFollowingBack, followingUsernames.length, followersUsernames.length);
+      // 5. MOSTRA RISULTATI
+      displayResults(notFollowingBack, followingUsernames.length, followersArray.length);
       
       statusPill.textContent = '✅ Completo';
       statusPill.className = 'pill success';
@@ -243,8 +298,8 @@ document.addEventListener('DOMContentLoaded', function() {
       <li style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;"
           onmouseover="this.style.background='#f9f9f9'" onmouseout="this.style.background='white'">
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
-          <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); 
-                      display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.9em;">
+          <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0; 
+                      display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em;">
             ${username.charAt(0).toUpperCase()}
           </div>
           <div style="min-width: 0; flex: 1;">
@@ -271,39 +326,39 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Statistiche -->
         <div style="background: white; border-radius: 16px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
           <div style="text-align: center; margin-bottom: 30px;">
-            <div style="font-size: 2em; font-weight: 800; margin-bottom: 10px; color: #262626; letter-spacing: -0.5px;">
-              📊 Risultati Analisi Instagram
+            <div style="font-size: 2em; font-weight: 800; margin-bottom: 10px; color: #262626;">
+              📊 Risultati Analisi
             </div>
             <div style="color: #8e8e8e; font-size: 0.95em;">
-              Dati estratti correttamente da following.json e followers.json
+              Dati estratti esclusivamente da following.json e followers.json
             </div>
           </div>
           
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
-            <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #f8f9fa, #ffffff); border-radius: 12px; border: 1px solid #efefef;">
-              <div style="font-size: 3em; font-weight: 800; color: #0095f6; margin-bottom: 10px; letter-spacing: -1px;">${followingCount}</div>
-              <div style="color: #262626; font-weight: 600; font-size: 0.95em;">Account che segui</div>
+            <div style="text-align: center; padding: 25px; background: #f8f9fa; border-radius: 12px; border: 1px solid #efefef;">
+              <div style="font-size: 3em; font-weight: 800; color: #0095f6; margin-bottom: 10px;">${followingCount}</div>
+              <div style="color: #262626; font-weight: 600; font-size: 0.95em;">Following</div>
               <div style="color: #8e8e8e; font-size: 0.85em; margin-top: 5px;">Estratti da title</div>
             </div>
             
-            <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #f8f9fa, #ffffff); border-radius: 12px; border: 1px solid #efefef;">
-              <div style="font-size: 3em; font-weight: 800; color: #00a046; margin-bottom: 10px; letter-spacing: -1px;">${followersCount}</div>
-              <div style="color: #262626; font-weight: 600; font-size: 0.95em;">Account che ti seguono</div>
+            <div style="text-align: center; padding: 25px; background: #f8f9fa; border-radius: 12px; border: 1px solid #efefef;">
+              <div style="font-size: 3em; font-weight: 800; color: #00a046; margin-bottom: 10px;">${followersCount}</div>
+              <div style="color: #262626; font-weight: 600; font-size: 0.95em;">Followers</div>
               <div style="color: #8e8e8e; font-size: 0.85em; margin-top: 5px;">Estratti da value</div>
             </div>
             
-            <div style="text-align: center; padding: 25px; background: linear-gradient(135deg, #f8f9fa, #ffffff); border-radius: 12px; border: 1px solid #efefef;">
-              <div style="font-size: 3em; font-weight: 800; color: #ff4444; margin-bottom: 10px; letter-spacing: -1px;">${notFollowingBack.length}</div>
+            <div style="text-align: center; padding: 25px; background: #f8f9fa; border-radius: 12px; border: 1px solid #efefef;">
+              <div style="font-size: 3em; font-weight: 800; color: #ff4444; margin-bottom: 10px;">${notFollowingBack.length}</div>
               <div style="color: #262626; font-weight: 600; font-size: 0.95em;">Non ti seguono</div>
               <div style="color: #8e8e8e; font-size: 0.85em; margin-top: 5px;">Non reciprocati</div>
             </div>
           </div>
           
-          <div style="background: linear-gradient(135deg, #f0f8ff, #e3f2fd); padding: 20px; border-radius: 12px; text-align: center; border-left: 5px solid #0095f6;">
-            <div style="font-weight: 700; margin-bottom: 10px; color: #0095f6; font-size: 1.1em;">📈 Dettaglio rapporto</div>
+          <div style="background: #f0f8ff; padding: 20px; border-radius: 12px; text-align: center;">
+            <div style="font-weight: 700; margin-bottom: 10px; color: #0095f6; font-size: 1.1em;">📈 Rapporto</div>
             <div style="font-size: 1em; color: #37474f; line-height: 1.5;">
-              <span style="font-weight: 700; color: #ff4444;">${notFollowingBack.length}</span> account su 
-              <span style="font-weight: 700; color: #0095f6;">${followingCount}</span> che segui non ti seguono<br>
+              <span style="font-weight: 700; color: #ff4444;">${notFollowingBack.length}</span> su 
+              <span style="font-weight: 700; color: #0095f6;">${followingCount}</span> following non ti seguono<br>
               (<span style="font-weight: 700; color: #ff4444;">${notFollowingPercentage}%</span> dei tuoi seguiti)
             </div>
           </div>
@@ -314,76 +369,57 @@ document.addEventListener('DOMContentLoaded', function() {
           <div style="background: white; border-radius: 16px; padding: 30px; margin-bottom: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
               <div>
-                <div style="font-size: 1.5em; font-weight: 800; color: #262626; margin-bottom: 8px; letter-spacing: -0.5px;">
+                <div style="font-size: 1.5em; font-weight: 800; color: #262626; margin-bottom: 8px;">
                   👥 Account che non ti seguono
                 </div>
                 <div style="color: #8e8e8e; font-size: 0.9em;">
                   Clicca "Vedi" per aprire il profilo su Instagram
                 </div>
               </div>
-              <div style="background: linear-gradient(135deg, #ff4444, #ff6b6b); color: white; padding: 8px 20px; 
-                      border-radius: 20px; font-weight: 700; font-size: 0.95em; box-shadow: 0 2px 8px rgba(255,68,68,0.2);">
+              <div style="background: #ff4444; color: white; padding: 8px 20px; 
+                      border-radius: 20px; font-weight: 700; font-size: 0.95em;">
                 ${notFollowingBack.length} account
               </div>
             </div>
             
             ${hasMore ? `
-              <div style="background: linear-gradient(135deg, #fff3cd, #ffecb3); padding: 15px; border-radius: 10px; margin-bottom: 20px; 
-                      border-left: 5px solid #ffc107; font-size: 0.9em; color: #856404;">
-                ⚠️ Per motivi di performance, mostrati i primi 200 account su ${notFollowingBack.length} totali
+              <div style="background: #fff3cd; padding: 15px; border-radius: 10px; margin-bottom: 20px; 
+                      font-size: 0.9em; color: #856404;">
+                ⚠️ Mostrati i primi 200 account su ${notFollowingBack.length} totali
               </div>
             ` : ''}
             
-            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #efefef; border-radius: 12px; background: #fafafa;">
+            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #efefef; border-radius: 12px;">
               <ul style="list-style: none; padding: 0; margin: 0;">
                 ${listItems}
               </ul>
             </div>
             
             ${hasMore ? `
-              <div style="text-align: center; margin-top: 20px; padding: 15px; color: #8e8e8e; font-size: 0.9em; background: #f8f9fa; border-radius: 10px;">
-                <span style="font-weight: 600;">... e altri ${notFollowingBack.length - 200} account non mostrati</span><br>
-                <span style="font-size: 0.85em;">(lista limitata per garantire le performance del browser)</span>
+              <div style="text-align: center; margin-top: 20px; padding: 15px; color: #8e8e8e; font-size: 0.9em;">
+                <span style="font-weight: 600;">... e altri ${notFollowingBack.length - 200} account</span>
               </div>
             ` : ''}
           </div>
         ` : `
           <div style="text-align: center; padding: 50px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
             <div style="font-size: 4em; margin-bottom: 20px;">🎉</div>
-            <div style="font-size: 1.8em; font-weight: 800; margin-bottom: 15px; color: #262626; letter-spacing: -0.5px;">
+            <div style="font-size: 1.8em; font-weight: 800; margin-bottom: 15px; color: #262626;">
               Ottimo risultato!
             </div>
             <div style="color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 1.1em;">
-              Tutti gli account che segui ti seguono a loro volta!<br>
-              Hai un rapporto follower/seguaci perfetto.
-            </div>
-            <div style="background: linear-gradient(135deg, #f0f8ff, #e3f2fd); padding: 25px; border-radius: 12px; display: inline-block; 
-                    border-left: 5px solid #0095f6; min-width: 300px;">
-              <div style="font-weight: 700; color: #0095f6; margin-bottom: 10px; font-size: 1.1em;">📊 Bilancio follower</div>
-              <div style="display: flex; justify-content: center; gap: 30px; font-size: 1.2em;">
-                <div style="text-align: center;">
-                  <div style="font-weight: 800; color: #0095f6; font-size: 2em;">${followingCount}</div>
-                  <div style="color: #8e8e8e; font-size: 0.9em;">Seguiti</div>
-                </div>
-                <div style="align-self: center; color: #8e8e8e; font-size: 1.5em;">→</div>
-                <div style="text-align: center;">
-                  <div style="font-weight: 800; color: #00a046; font-size: 2em;">${followersCount}</div>
-                  <div style="color: #8e8e8e; font-size: 0.9em;">Follower</div>
-                </div>
-              </div>
+              Tutti i tuoi ${followingCount} following ti seguono a loro volta!
             </div>
           </div>
         `}
         
-        <!-- Info tecniche -->
-        <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f8f9fa, #ffffff); 
-                    border-radius: 12px; font-size: 0.9em; color: #666; border: 1px solid #efefef;">
-          <div style="font-weight: 700; margin-bottom: 12px; color: #262626; font-size: 1em;">ℹ️ Informazioni tecniche</div>
+        <!-- Info -->
+        <div style="margin-top: 25px; padding: 20px; background: #f8f9fa; border-radius: 12px; font-size: 0.9em; color: #666;">
+          <div style="font-weight: 700; margin-bottom: 12px; color: #262626;">ℹ️ Informazioni</div>
           <div style="line-height: 1.6;">
-            • <strong>Following:</strong> ${followingCount} account estratti dal campo "title" in relationships_following<br>
-            • <strong>Followers:</strong> ${followersCount} account estratti dal campo "value" in string_list_data<br>
-            • <strong>Non reciprocati:</strong> ${notFollowingBack.length} account che segui ma che non ti seguono<br>
-            • L'analisi è eseguita localmente nel tuo browser, nessun dato viene inviato a server esterni
+            • Following: ${followingCount} account estratti dal campo "title" in relationships_following<br>
+            • Followers: ${followersCount} account estratti dal campo "value" in string_list_data<br>
+            • Non reciprocati: ${notFollowingBack.length} account che segui ma che non ti seguono
           </div>
         </div>
       </div>
@@ -401,19 +437,21 @@ document.addEventListener('DOMContentLoaded', function() {
     results.innerHTML = `
       <div style="text-align: center; padding: 50px 20px; max-width: 700px; margin: 0 auto;">
         <div style="font-size: 3.5em; margin-bottom: 20px;">📊</div>
-        <div style="font-size: 2em; font-weight: 800; margin-bottom: 15px; color: #262626; letter-spacing: -0.5px;">
+        <div style="font-size: 2em; font-weight: 800; margin-bottom: 15px; color: #262626;">
           Analizzatore Instagram
         </div>
         <div style="color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 1.1em;">
-          Scopri chi non ti segue su Instagram<br>
-          analizzando i tuoi dati scaricati dalla piattaforma
+          Carica il file ZIP di Instagram per scoprire<br>
+          <strong>chi non ti segue</strong>
         </div>
         <div style="background: #f0f8ff; padding: 15px; border-radius: 10px; margin-top: 20px;">
-          <div style="font-weight: 600; color: #0095f6; margin-bottom: 10px;">✅ Struttura corretta identificata</div>
+          <div style="font-weight: 600; color: #0095f6; margin-bottom: 10px;">📥 Come ottenere i dati</div>
           <div style="font-size: 0.9em; color: #555; line-height: 1.5;">
-            • Following: estratti da relationships_following.title<br>
-            • Followers: estratti da string_list_data.value<br>
-            • Apri la console (F12 → Console) per vedere i dettagli dell'analisi
+            1. Scarica i tuoi dati da Instagram<br>
+            2. Estrai il file ZIP<br>
+            3. Carica il file ZIP qui<br>
+            <br>
+            <strong>Importante:</strong> Apri la console (F12 → Console) per vedere i dettagli dell'analisi
           </div>
         </div>
       </div>
@@ -443,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
       ['dragenter', 'dragover'].forEach(ev => {
         dropzone.addEventListener(ev, e => {
           e.preventDefault();
-          dropzone.style.background = 'linear-gradient(135deg, #f0f8ff, #e3f2fd)';
+          dropzone.style.background = '#f0f8ff';
           dropzone.style.borderColor = '#0095f6';
         });
       });
@@ -489,8 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }).catch(error => {
     console.error('Errore caricamento JSZip:', error);
     results.innerHTML = `
-      <div style="text-align: center; padding: 50px 20px; background: linear-gradient(135deg, #ffebee, #ffcdd2); 
-                  border-radius: 16px; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; padding: 50px 20px; background: #ffebee; border-radius: 16px; max-width: 600px; margin: 0 auto;">
         <div style="font-size: 3em; margin-bottom: 20px;">❌</div>
         <div style="font-size: 1.5em; font-weight: 800; margin-bottom: 15px; color: #d32f2f;">
           Errore di caricamento
