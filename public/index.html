@@ -8,6 +8,24 @@
   <title>Instagram Follower Tracker - Scopri Chi Non Ti Segue</title>
   <meta name="description" content="Scopri chi non ti segue più su Instagram. Carica il tuo file ZIP esportato e ottieni l'analisi istantanea. Privacy garantita, completamente gratuito.">
   
+  <!-- Schema.org markup -->
+  <meta itemprop="name" content="Instagram Follower Tracker">
+  <meta itemprop="description" content="Strumento gratuito per analizzare follower e following su Instagram">
+  <meta itemprop="applicationCategory" content="Utility">
+  <meta itemprop="operatingSystem" content="Web">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://instagram-follower-tracker.com/">
+  <meta property="og:title" content="Instagram Follower Tracker - Scopri Chi Non Ti Segue">
+  <meta property="og:description" content="Scopri chi non ti segue più su Instagram. Analisi gratuita e sicura.">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://instagram-follower-tracker.com/">
+  <meta property="twitter:title" content="Instagram Follower Tracker - Scopri Chi Non Ti Segue">
+  <meta property="twitter:description" content="Scopri chi non ti segue più su Instagram. Analisi gratuita e sicura.">
+  
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-base.css">
   <link rel="stylesheet" href="css/02-layout.css">
@@ -19,17 +37,8 @@
   <link rel="stylesheet" href="css/08-responsive.css">
   <link rel="stylesheet" href="css/general.css">
 
+  <!-- Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
-
-  <script>
-    (function () {
-      if (document.compatMode !== 'CSS1Compat') {
-        window.__PAGE_IN_QUIRKS = true;
-      } else {
-        window.__PAGE_IN_QUIRKS = false;
-      }
-    })();
-  </script>
   
   <style>
     .ig-gradient {
@@ -158,6 +167,7 @@
       gap: 15px;
       justify-content: center;
       margin-top: 10px;
+      flex-wrap: wrap;
     }
     
     .footer-links a {
@@ -200,6 +210,19 @@
       font-size: 0.9rem;
     }
     
+    .ad-container {
+      margin: 25px 0;
+      text-align: center;
+      min-height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .ad-container.leaderboard {
+      min-height: 250px;
+    }
+    
     @media (max-width: 768px) {
       .controls {
         flex-direction: column;
@@ -213,9 +236,49 @@
       
       .trust-badges {
         flex-direction: column;
+        align-items: center;
+      }
+      
+      .trust-badge {
+        width: 100%;
+        max-width: 300px;
+      }
+      
+      .footer-links {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .upload-section {
+        padding: 15px;
+      }
+      
+      .results-header h3 {
+        font-size: 1.2rem;
       }
     }
   </style>
+  
+  <!-- Google AdSense Auto Ads -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
+  
+  <script>
+    // Compatibilità per AdSense
+    (function() {
+      // Inizializza AdSense
+      window.adsbygoogle = window.adsbygoogle || [];
+      
+      // Controllo per evitare problemi in modalità quirks
+      if (document.compatMode !== 'CSS1Compat') {
+        window.__PAGE_IN_QUIRKS = true;
+      } else {
+        window.__PAGE_IN_QUIRKS = false;
+      }
+    })();
+  </script>
 </head>
 
 <body itemscope itemtype="https://schema.org/WebPage">
@@ -231,16 +294,6 @@
             <p class="subtitle">Analizza i tuoi follower e scopri chi non ti segue più - completamente sicuro e privato</p>
           </div>
         </header>
-
-        <!-- TOP AD -->
-        <div class="ad-container" id="ad-top" data-min-width="320" aria-hidden="true">
-          <ins class="adsbygoogle"
-               style="display:block"
-               data-ad-client="ca-pub-1948802026580753"
-               data-ad-slot="1234567890"
-               data-ad-format="auto"
-               data-full-width-responsive="true"></ins>
-        </div>
 
         <!-- TRUST BADGES -->
         <div class="trust-badges">
@@ -258,6 +311,16 @@
           </div>
         </div>
 
+        <!-- TOP AD - Responsive -->
+        <div class="ad-container" aria-label="Pubblicità">
+          <ins class="adsbygoogle"
+               style="display:block"
+               data-ad-client="ca-pub-1948802026580753"
+               data-ad-slot="1234567890"
+               data-ad-format="auto"
+               data-full-width-responsive="true"></ins>
+        </div>
+
         <!-- GUIDA ESPANDIBILE -->
         <div class="expandable-header" onclick="toggleExpandable('guide')">
           <span>📚 Guida passo-passo per esportare i dati da Instagram</span>
@@ -272,7 +335,6 @@
               <ul style="margin: 10px 0; padding-left: 20px;">
                 <li><strong>Intervallo di date:</strong> "Dall'inizio" (seleziona tutta la cronologia)</li>
                 <li><strong>Formato:</strong> JSON (obbligatorio per il nostro strumento)</li>
-                <li><strong>Qualità media:</strong> "Higher" o "High"</li>
                 <li><strong>Dimensione file:</strong> Seleziona solo "Followers e following" per file più piccoli</li>
                 <li><strong>Email per il download:</strong> Usa l'email associata al tuo account Instagram</li>
               </ul>
@@ -291,7 +353,6 @@
                   <li><strong>Deseleziona TUTTO</strong> tranne <strong>"Followers e following"</strong></li>
                   <li><strong>Intervallo di date:</strong> Seleziona "Dall'inizio"</li>
                   <li><strong>Formato:</strong> Seleziona <strong>JSON</strong> (NON HTML)</li>
-                  <li><strong>Qualità media:</strong> Imposta su "Higher" o "High"</li>
                 </ul>
               </li>
               <li>Clicca <strong>"Crea export"</strong> e conferma con la tua password</li>
@@ -312,7 +373,7 @@
         <!-- UPLOAD SECTION -->
         <div class="upload-section">
           <div style="text-align: center; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0;">Carica il tuo file ZIP da Instagram</h3>
+            <h2 style="margin: 0 0 10px 0;">Carica il tuo file ZIP da Instagram</h2>
             <p style="margin: 0; color: #666;">Trascina il file qui o clicca per selezionarlo</p>
           </div>
 
@@ -349,7 +410,7 @@
         </div>
 
         <!-- IN-CONTENT AD -->
-        <div class="ad-container" id="ad-incontent" data-min-width="320" aria-hidden="true">
+        <div class="ad-container" aria-label="Pubblicità">
           <ins class="adsbygoogle"
                style="display:block"
                data-ad-client="ca-pub-1948802026580753"
@@ -406,12 +467,12 @@
             <div style="margin-bottom: 20px;">
               <h4 style="margin-top: 0; color: #405DE6;">🎯 Precisione dei Risultati</h4>
               <p><strong>Quanto sono accurati i risultati?</strong></p>
-              <p>I risultati sono <strong>100% accurati</strong> perché:</p>
+              <p>I risultati sono basati sui dati ufficiali di Instagram:</p>
               <ul style="margin: 10px 0; padding-left: 20px;">
                 <li>Usiamo i dati ufficiali forniti da Instagram</li>
                 <li>Analizziamo ogni voce nei file JSON originali</li>
                 <li>Confrontiamo direttamente le liste di following e followers</li>
-                <li>Filtriamo automaticamente account inattivi e sospetti</li>
+                <li>I risultati riflettono lo stato al momento dell'esportazione</li>
               </ul>
             </div>
             
@@ -427,16 +488,11 @@
                 <li>Prova con un browser diverso (Chrome, Firefox, Safari)</li>
               </ol>
             </div>
-            
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-              <p style="margin: 0; font-weight: 600;">Hai ancora domande?</p>
-              <p style="margin: 10px 0 0 0; font-size: 0.9em;">Contattaci tramite la pagina <a href="contact.html">Contatti</a> per assistenza personalizzata.</p>
-            </div>
           </div>
         </div>
 
         <!-- FOOTER AD -->
-        <div class="ad-container" id="ad-footer" data-min-width="320" aria-hidden="true">
+        <div class="ad-container" aria-label="Pubblicità">
           <ins class="adsbygoogle"
                style="display:block"
                data-ad-client="ca-pub-1948802026580753"
@@ -447,11 +503,11 @@
 
         <!-- FOOTER -->
         <footer style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-          <p style="margin: 0 0 10px 0; color: #666;">&copy; 2024 Instagram Follower Tracker</p>
+          <p style="margin: 0 0 10px 0; color: #666;">&copy; <span id="currentYear"></span> Instagram Follower Tracker</p>
           <div class="footer-links">
-            <a href="privacy-policy.html">Informativa Privacy</a>
-            <a href="terms-of-service.html">Termini di Servizio</a>
-            <a href="contact.html">Contatti e Supporto</a>
+            <a href="privacy-policy.html" aria-label="Leggi l'informativa sulla privacy">Informativa Privacy</a>
+            <a href="terms-of-service.html" aria-label="Leggi i termini di servizio">Termini di Servizio</a>
+            <a href="contact.html" aria-label="Contattaci per supporto">Contatti e Supporto</a>
           </div>
           <p style="margin: 15px 0 0 0; font-size: 0.85em; color: #999;">
             Questo strumento non è affiliato, associato, autorizzato, sostenuto o in alcun modo connesso con Instagram o Meta Platforms.<br>
@@ -462,10 +518,10 @@
     </div>
   </div>
 
-  <script src="scripts/ads.js" defer></script>
   <script src="scripts/app.js" defer></script>
   
   <script>
+    // Funzione per espandere/contraire le sezioni
     function toggleExpandable(id) {
       const content = document.getElementById(`${id}-content`);
       const icon = document.getElementById(`${id}-icon`);
@@ -479,16 +535,43 @@
       }
     }
     
+    // Imposta l'anno corrente nel footer
     document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('currentYear').textContent = new Date().getFullYear();
+      
+      // Inizializza AdSense
       if (!window.__PAGE_IN_QUIRKS) {
-        setTimeout(function() {
-          try {
-            (adsbygoogle = window.adsbygoogle || []).push({});
-          } catch (e) {}
-        }, 1000);
+        try {
+          // Attendi che la pagina sia completamente caricata
+          setTimeout(function() {
+            if (window.adsbygoogle) {
+              (adsbygoogle = window.adsbygoogle || []).push({});
+            }
+          }, 1000);
+        } catch (e) {
+          console.error('Errore nell\'inizializzazione di AdSense:', e);
+        }
+      }
+      
+      // Apre automaticamente la guida per utenti nuovi
+      if (!localStorage.getItem('hasSeenGuide')) {
+        setTimeout(() => {
+          toggleExpandable('guide');
+          localStorage.setItem('hasSeenGuide', 'true');
+        }, 500);
+      }
+    });
+    
+    // Gestione AdSense per cambiamenti di dimensione
+    window.addEventListener('resize', function() {
+      if (window.adsbygoogle) {
+        (adsbygoogle = window.adsbygoogle || []).push({});
       }
     });
   </script>
+  
+  <!-- Google AdSense per siti web -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
 </body>
 
 </html>
