@@ -38,42 +38,84 @@ document.addEventListener('DOMContentLoaded', function() {
     return null;
   }
 
-  // ========== ANALISI FOLLOWING (relationships_following) ==========
+  // ========== ANALISI FOLLOWING (stesso formato dei followers) ==========
   function extractUsernamesFromFollowingFile(jsonData) {
     const usernames = new Set();
     
     try {
       const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       
-      // Following.json ha questa struttura: {"relationships_following": [...]}
-      if (data.relationships_following && Array.isArray(data.relationships_following)) {
-        console.log(`Trovati ${data.relationships_following.length} oggetti in relationships_following`);
+      console.log("=== DEBUG FOLLOWING ===");
+      console.log("Tipo dato:", typeof data);
+      console.log("È array?", Array.isArray(data));
+      
+      if (Array.isArray(data)) {
+        console.log(`Array length: ${data.length}`);
         
-        data.relationships_following.forEach((item, index) => {
-          // PRIMA PRIORITÀ: campo "title" (contiene l'username)
-          if (item.title) {
-            const username = cleanInstagramUsername(item.title);
-            if (username) {
-              usernames.add(username);
-              return;
-            }
-          }
+        data.forEach((item, index) => {
+          console.log(`Elemento ${index}:`, item);
           
-          // SECONDA PRIORITÀ: campo "href" in string_list_data
+          // Cerca in string_list_data -> value
           if (item.string_list_data && Array.isArray(item.string_list_data)) {
-            item.string_list_data.forEach(stringItem => {
+            console.log(`  string_list_data trovato con ${item.string_list_data.length} elementi`);
+            
+            item.string_list_data.forEach((stringItem, subIndex) => {
+              console.log(`  stringItem ${subIndex}:`, stringItem);
+              
+              // PRIORITÀ: campo "value" (contiene l'username)
+              if (stringItem.value) {
+                console.log(`    value trovato: "${stringItem.value}"`);
+                const username = cleanInstagramUsername(stringItem.value);
+                if (username) {
+                  console.log(`    username pulito: "${username}" - AGGIUNTO`);
+                  usernames.add(username);
+                  return;
+                } else {
+                  console.log(`    username NON valido dopo pulizia`);
+                }
+              }
+              
+              // Fallback: campo "href"
               if (stringItem.href) {
+                console.log(`    href trovato: "${stringItem.href}"`);
                 const username = extractUsernameFromHref(stringItem.href);
-                if (username) usernames.add(username);
+                if (username) {
+                  console.log(`    username da href: "${username}" - AGGIUNTO`);
+                  usernames.add(username);
+                }
               }
             });
+          } else {
+            console.log(`  string_list_data NON trovato`);
+          }
+          
+          // Controlla anche il campo title per sicurezza
+          if (item.title) {
+            console.log(`  title trovato: "${item.title}"`);
+            const username = cleanInstagramUsername(item.title);
+            if (username) {
+              console.log(`    username da title: "${username}" - AGGIUNTO`);
+              usernames.add(username);
+            }
           }
         });
       } else {
-        console.error("Struttura following.json non valida. relationships_following non trovato.");
+        console.log("Following non è un array, è un oggetto:", data);
+        
+        // Forse è nel vecchio formato con relationships_following
+        if (data.relationships_following && Array.isArray(data.relationships_following)) {
+          console.log("Trovato relationships_following:", data.relationships_following.length);
+          data.relationships_following.forEach(item => {
+            if (item.title) {
+              const username = cleanInstagramUsername(item.title);
+              if (username) usernames.add(username);
+            }
+          });
+        }
       }
       
-      console.log(`Following estratti: ${usernames.size}`);
+      console.log(`TOTALE following estratti: ${usernames.size}`);
+      console.log("=== FINE DEBUG FOLLOWING ===");
       
     } catch (error) {
       console.error('Errore analisi following JSON:', error);
@@ -82,19 +124,22 @@ document.addEventListener('DOMContentLoaded', function() {
     return Array.from(usernames);
   }
 
-  // ========== ANALISI FOLLOWERS (array di oggetti) ==========
+  // ========== ANALISI FOLLOWERS ==========
   function extractUsernamesFromFollowersFile(jsonData) {
     const usernames = new Set();
     
     try {
       const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
       
-      // Follower.json ha questa struttura: [ {...}, {...} ] (array di oggetti)
+      console.log("=== DEBUG FOLLOWERS ===");
+      console.log("Tipo dato:", typeof data);
+      console.log("È array?", Array.isArray(data));
+      
       if (Array.isArray(data)) {
-        console.log(`Trovati ${data.length} oggetti in followers array`);
+        console.log(`Array length: ${data.length}`);
         
         data.forEach((item, index) => {
-          // Cerca in string_list_data -> value (questo è il campo per followers)
+          // Cerca in string_list_data -> value
           if (item.string_list_data && Array.isArray(item.string_list_data)) {
             item.string_list_data.forEach(stringItem => {
               // PRIORITÀ: campo "value" (contiene l'username)
@@ -114,11 +159,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
           }
         });
-      } else {
-        console.error("Struttura followers.json non valida. Non è un array.");
       }
       
-      console.log(`Followers estratti: ${usernames.size}`);
+      console.log(`TOTALE followers estratti: ${usernames.size}`);
+      console.log("=== FINE DEBUG FOLLOWERS ===");
       
     } catch (error) {
       console.error('Errore analisi followers JSON:', error);
@@ -160,12 +204,16 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="font-size: 3em; margin-bottom: 15px;">🔍</div>
         <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">Analisi in corso...</div>
         <div style="color: #666; font-size: 0.9em; line-height: 1.5;">
-          Estrazione dei dati dal file ZIP
+          Estrazione dei dati dal file ZIP<br>
+          <small>Apri la console del browser (F12) per vedere i dettagli</small>
         </div>
       </div>
     `;
     
     try {
+      console.clear();
+      console.log("=== INIZIO ANALISI ZIP ===");
+      
       const arrayBuffer = await file.arrayBuffer();
       const zip = await window.JSZip.loadAsync(arrayBuffer);
       
@@ -174,15 +222,18 @@ document.addEventListener('DOMContentLoaded', function() {
       const followerFiles = [];
       
       zip.forEach((path, entry) => {
+        console.log(`File trovato: ${path}`);
         if (!entry.dir) {
           const lowerPath = path.toLowerCase();
           
           if (lowerPath.includes('following') && lowerPath.endsWith('.json')) {
+            console.log(`✓ Trovato following file: ${path}`);
             followingFile = entry;
           }
           
           if ((lowerPath.includes('follower') || lowerPath.includes('followers')) && 
               lowerPath.endsWith('.json')) {
+            console.log(`✓ Trovato follower file: ${path}`);
             followerFiles.push(entry);
           }
         }
@@ -194,12 +245,17 @@ document.addEventListener('DOMContentLoaded', function() {
       if (followerFiles.length === 0) throw new Error('Nessun file "follower" trovato nel ZIP');
       
       // Leggi file following
+      console.log("\n=== LETTURA FOLLOWING.JSON ===");
       const followingContent = await followingFile.async('string');
+      console.log("Primi 500 caratteri del file:", followingContent.substring(0, 500));
+      
       const followingUsernames = extractUsernamesFromFollowingFile(followingContent);
       
       // Leggi tutti i file follower
+      console.log("\n=== LETTURA FOLLOWER FILES ===");
       const allFollowers = new Set();
       for (const followerFile of followerFiles) {
+        console.log(`\nAnalisi file: ${followerFile.name}`);
         const followerContent = await followerFile.async('string');
         const followerUsernames = extractUsernamesFromFollowersFile(followerContent);
         followerUsernames.forEach(u => allFollowers.add(u));
@@ -207,9 +263,18 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const followersArray = Array.from(allFollowers);
       
+      console.log("\n=== RISULTATI FINALI ===");
+      console.log(`Following estratti: ${followingUsernames.length}`);
+      console.log(`Followers estratti: ${followersArray.length}`);
+      console.log("Primi 10 following:", followingUsernames.slice(0, 10));
+      console.log("Primi 10 followers:", followersArray.slice(0, 10));
+      
       // Trova chi non segue
       const followersSet = new Set(followersArray);
       const notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
+      
+      console.log(`Non following back: ${notFollowingBack.length}`);
+      console.log("Primi 10 non following back:", notFollowingBack.slice(0, 10));
       
       // Mostra risultati
       displayResults(notFollowingBack, followingUsernames.length, followersArray.length);
@@ -226,10 +291,8 @@ document.addEventListener('DOMContentLoaded', function() {
           <div style="font-size: 3em; margin-bottom: 20px;">⚠️</div>
           <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 15px; color: #d32f2f;">Errore nell'analisi</div>
           <div style="color: #666; margin-bottom: 20px; line-height: 1.5;">${error.message}</div>
-          <div style="font-size: 0.9em; color: #999; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px;">
-            <strong>Struttura attesa dei file:</strong><br>
-            • following.json: {"relationships_following": [...]} con campo "title"<br>
-            • followers_*.json: array di oggetti con campo "value" in "string_list_data"
+          <div style="font-size: 0.9em; color: #999;">
+            Apri la console del browser (F12) per vedere i dettagli dell'errore
           </div>
         </div>
       `;
@@ -384,6 +447,18 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         `}
+        
+        <!-- Debug info -->
+        <div style="margin-top: 25px; padding: 20px; background: linear-gradient(135deg, #f5f5f5, #e0e0e0); 
+                    border-radius: 12px; font-size: 0.85em; color: #666; border: 1px solid #ddd;">
+          <div style="font-weight: 700; margin-bottom: 12px; color: #333; font-size: 0.9em;">🔧 Debug Info</div>
+          <div style="line-height: 1.6; font-family: monospace;">
+            • Following estratti: ${followingCount}<br>
+            • Followers estratti: ${followersCount}<br>
+            • Non reciprocati: ${notFollowingBack.length}<br>
+            • Apri la console (F12) per dettagli tecnici
+          </div>
+        </div>
       </div>
     `;
   }
@@ -405,6 +480,13 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="color: #666; margin-bottom: 30px; line-height: 1.6; font-size: 1.1em;">
           Scopri chi non ti segue su Instagram<br>
           analizzando i tuoi dati scaricati dalla piattaforma
+        </div>
+        <div style="background: #f0f8ff; padding: 15px; border-radius: 10px; margin-top: 20px;">
+          <div style="font-weight: 600; color: #0095f6; margin-bottom: 10px;">⚠️ IMPORTANTE</div>
+          <div style="font-size: 0.9em; color: #555;">
+            Apri la console del browser (F12 → Console)<br>
+            per vedere i dettagli dell'analisi e debug
+          </div>
         </div>
       </div>
     `;
