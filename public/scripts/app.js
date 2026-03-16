@@ -2,11 +2,17 @@ document.addEventListener('DOMContentLoaded', function() {
   // ========== CONFIGURAZIONE ==========
   const CONFIG = {
     MIN_USERNAME_LENGTH: 1,
-    MAX_USERNAME_LENGTH: 50
+    MAX_USERNAME_LENGTH: 50,
+    ITEMS_PER_PAGE: 100                     // <-- nuovo: elementi per pagina
   };
 
   // ========== STATO DELL'APPLICAZIONE ==========
   let isProcessing = false;
+
+  // ========== STATO PER LA PAGINAZIONE ==========
+  let currentNotFollowingBack = [];          // lista completa
+  let currentFollowingCount = 0;
+  let currentFollowersCount = 0;
 
   // ========== FUNZIONI DI ESTRAZIONE ==========
   function cleanInstagramUsername(username) {
@@ -171,8 +177,13 @@ document.addEventListener('DOMContentLoaded', function() {
       const followersSet = new Set(followersArray);
       const notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
       
-      // Mostra risultati immediatamente (senza verifica)
-      displayResults(notFollowingBack, followingUsernames.length, followersArray.length);
+      // Salva i dati per la paginazione
+      currentNotFollowingBack = notFollowingBack;
+      currentFollowingCount = followingUsernames.length;
+      currentFollowersCount = followersArray.length;
+      
+      // Mostra risultati con pagina 1
+      displayResults(1);
       
       statusPill.textContent = '✅ Completo';
       statusPill.className = 'pill success';
@@ -200,16 +211,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ========== VISUALIZZAZIONE RISULTATI ==========
-  function displayResults(notFollowingBack, followingCount, followersCount) {
+  // ========== VISUALIZZAZIONE RISULTATI CON PAGINAZIONE ==========
+  function displayResults(page = 1) {
     const results = document.getElementById('results');
-    
+    const notFollowingBack = currentNotFollowingBack;
+    const followingCount = currentFollowingCount;
+    const followersCount = currentFollowersCount;
+
+    const totalItems = notFollowingBack.length;
+    const itemsPerPage = CONFIG.ITEMS_PER_PAGE;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    // Assicura che la pagina sia valida
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages || 1;
+
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+    const usersToShow = notFollowingBack.slice(startIndex, endIndex);
+
     const notFollowingPercentage = followingCount > 0 ? 
       ((notFollowingBack.length / followingCount) * 100).toFixed(1) : '0';
-    
-    const usersToShow = notFollowingBack.slice(0, 150);
-    const hasMore = notFollowingBack.length > 150;
-    
+
     const listItems = usersToShow.map((username, index) => `
       <li style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
@@ -233,7 +256,28 @@ document.addEventListener('DOMContentLoaded', function() {
         </button>
       </li>
     `).join('');
-    
+
+    // Genera i controlli di paginazione
+    const paginationControls = totalPages > 1 ? `
+      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 20px 0 10px;">
+        <button 
+          onclick="window.updateResultsPage(${page - 1})" 
+          ${page === 1 ? 'disabled' : ''}
+          style="padding: 8px 16px; background: ${page === 1 ? '#ccc' : '#0095f6'}; color: white; border: none; border-radius: 6px; cursor: ${page === 1 ? 'not-allowed' : 'pointer'}; font-weight: 500;">
+          ← Precedente
+        </button>
+        <span style="font-weight: 500; color: #262626;">
+          Pagina ${page} di ${totalPages}
+        </span>
+        <button 
+          onclick="window.updateResultsPage(${page + 1})" 
+          ${page === totalPages ? 'disabled' : ''}
+          style="padding: 8px 16px; background: ${page === totalPages ? '#ccc' : '#0095f6'}; color: white; border: none; border-radius: 6px; cursor: ${page === totalPages ? 'not-allowed' : 'pointer'}; font-weight: 500;">
+          Successivo →
+        </button>
+      </div>
+    ` : '';
+
     results.innerHTML = `
       <div style="max-width: 800px; margin: 0 auto;">
         <!-- NOTA INFORMATIVA -->
@@ -298,25 +342,24 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- Lista risultati -->
         ${notFollowingBack.length > 0 ? `
           <div style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
               <div>
                 <div style="font-size: 1.3em; font-weight: 800; color: #262626; margin-bottom: 5px;">
                   Account che non ti seguono
                 </div>
                 <div style="color: #8e8e8e; font-size: 0.9em;">
-                  ${notFollowingBack.length} account estratti dal file Instagram
+                  ${totalItems} account estratti dal file Instagram
                 </div>
               </div>
               <div style="background: #ff4444; color: white; padding: 6px 15px; border-radius: 20px; font-weight: 700;">
-                ${notFollowingBack.length}
+                ${totalItems}
               </div>
             </div>
             
-            ${hasMore ? `
-              <div style="background: #fff8e1; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; color: #856404;">
-                Mostrati i primi 150 account
-              </div>
-            ` : ''}
+            <!-- Indicatore di intervallo visualizzato -->
+            <div style="background: #fff8e1; padding: 8px 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; color: #856404;">
+              Mostrati da ${startIndex + 1} a ${endIndex} di ${totalItems} account
+            </div>
             
             <div style="max-height: 400px; overflow-y: auto;">
               <ul style="list-style: none; padding: 0; margin: 0;">
@@ -324,11 +367,8 @@ document.addEventListener('DOMContentLoaded', function() {
               </ul>
             </div>
             
-            ${hasMore ? `
-              <div style="text-align: center; margin-top: 15px; padding: 10px; color: #666; font-size: 0.9em;">
-                ... e altri ${notFollowingBack.length - 150} account
-              </div>
-            ` : ''}
+            <!-- Paginazione -->
+            ${paginationControls}
             
             <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; font-size: 0.85em; color: #666;">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -368,6 +408,11 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     `;
   }
+
+  // Esponi la funzione di aggiornamento pagina globalmente (per i pulsanti)
+  window.updateResultsPage = function(page) {
+    displayResults(page);
+  };
 
   // ========== INIZIALIZZAZIONE ==========
   loadJSZip().then(() => {
@@ -466,6 +511,11 @@ document.addEventListener('DOMContentLoaded', function() {
       resetBtn.addEventListener('click', () => {
         if (isProcessing) return;
         
+        // Resetta anche lo stato della paginazione
+        currentNotFollowingBack = [];
+        currentFollowingCount = 0;
+        currentFollowersCount = 0;
+        
         if (zipInput) {
           zipInput.value = '';
           zipInput.disabled = false;
@@ -489,6 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
   }).catch(error => {
     console.error('Errore caricamento libreria:', error);
+    const results = document.getElementById('results');
     results.innerHTML = `
       <div style="text-align: center; padding: 40px; background: #fff3f3; border-radius: 12px;">
         <div style="font-size: 3em; margin-bottom: 20px;">❌</div>
