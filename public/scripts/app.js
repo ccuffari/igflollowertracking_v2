@@ -4,9 +4,13 @@ document.addEventListener('DOMContentLoaded', function() {
     MIN_USERNAME_LENGTH: 1,
     MAX_USERNAME_LENGTH: 50,
     ITEMS_PER_PAGE: 100,
-    VERIFY_BATCH_SIZE: 5,                // richieste parallele durante verifica
-    VERIFY_TIMEOUT: 8000,                 // timeout per ogni richiesta (ms)
-    PROXY_URL: 'https://api.allorigins.win/get?url='  // proxy CORS gratuito
+    VERIFY_BATCH_SIZE: 3,                     // ridotto per evitare troppe richieste parallele
+    VERIFY_TIMEOUT: 10000,                    // timeout aumentato
+    PROXY_LIST: [                             // lista di proxy CORS gratuiti
+      'https://api.allorigins.win/get?url=',
+      'https://corsproxy.io/?',
+      'https://api.codetabs.com/v1/proxy/?quest='
+    ]
   };
 
   // ========== STATO DELL'APPLICAZIONE ==========
@@ -14,9 +18,11 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentNotFollowingBack = [];
   let currentFollowingCount = 0;
   let currentFollowersCount = 0;
-  let verificationSkipped = false;        // flag se la verifica è saltata
+  let verificationSkipped = false;        // flag se la verifica è stata saltata (volontariamente o per errore)
+  let verificationFailed = false;          // flag se la verifica è fallita del tutto
+  let verifiedList = [];                   // lista dopo verifica
 
-  // ========== FUNZIONI DI ESTRAZIONE ==========
+  // ========== FUNZIONI DI ESTRAZIONE (invariate) ==========
   function cleanInstagramUsername(username) {
     if (!username || typeof username !== 'string') return null;
     const cleanUsername = username.trim().toLowerCase();
@@ -66,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return Array.from(usernames);
   }
 
-  // ========== CARICAMENTO JSZIP ==========
+  // ========== CARICAMENTO JSZIP (invariato) ==========
   function loadJSZip() {
     if (window.JSZip) return Promise.resolve(window.JSZip);
     return new Promise((resolve, reject) => {
@@ -84,61 +90,156 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // ========== VERIFICA ESISTENZA PROFILO (tramite proxy) ==========
-  async function usernameExists(username) {
+  // ========== VERIFICA ESISTENZA PROFILO CON MULTI-PROXY ==========
+  async function checkUsernameWithProxy(username, proxyIndex = 0) {
+    if (proxyIndex >= CONFIG.PROXY_LIST.length) {
+      return { exists: false, error: 'Tutti i proxy hanno fallito' };
+    }
+
     const url = `https://www.instagram.com/${username}/`;
-    const proxyUrl = CONFIG.PROXY_URL + encodeURIComponent(url);
+    const proxyUrl = CONFIG.PROXY_LIST[proxyIndex] + encodeURIComponent(url);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CONFIG.VERIFY_TIMEOUT);
 
     try {
       const response = await fetch(proxyUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
-      if (!response.ok) return false; // proxy error
+
+      if (!response.ok) {
+        // Prova con il proxy successivo
+        return checkUsernameWithProxy(username, proxyIndex + 1);
+      }
 
       const data = await response.json();
-      // allorigins.win restituisce { contents: "html..." }
-      const html = data.contents || '';
-      
-      // Cerca il messaggio di "pagina non disponibile"
-      if (html.includes('Sorry, this page isn\'t available') ||
-          html.includes('page may have been removed') ||
-          html.includes('Pagina non trovata') ||
-          html.includes('La pagina che hai cercato non è disponibile')) {
-        return false;
+      // Adatta in base alla struttura del proxy
+      let html = '';
+      if (data.contents) html = data.contents;         // allorigins
+      else if (typeof data === 'string') html = data;  // corsproxy restituisce direttamente HTML
+      else html = data.toString();
+
+      // Cerca pattern di pagina non trovata
+      const lowerHtml = html.toLowerCase();
+      const notFoundPatterns = [
+        'sorry, this page isn\'t available',
+        'the link you followed may be broken',
+        'page may have been removed',
+        'pagina non trovata',
+        'la pagina che hai cercato non è disponibile',
+        'content="0; url=/challenge/"'  // redirect a challenge (account sospeso?)
+      ];
+
+      const isNotFound = notFoundPatterns.some(pattern => lowerHtml.includes(pattern));
+
+      // Inoltre controlla il titolo
+      const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+      const title = titleMatch ? titleMatch[1].toLowerCase() : '';
+      if (title.includes('page not found') || title.includes('pagina non trovata')) {
+        return { exists: false, proxyIndex };
       }
-      // Se non c'è quel messaggio, presumibilmente il profilo esiste
-      return true;
+
+      if (isNotFound) {
+        return { exists: false, proxyIndex };
+      }
+
+      // Se non rileviamo pattern di errore, assumiamo che il profilo esista
+      return { exists: true, proxyIndex };
     } catch (error) {
-      console.warn(`Errore verifica ${username}:`, error);
-      return false; // in caso di errore, consideriamo inesistente per sicurezza
+      clearTimeout(timeoutId);
+      // Errore di rete o timeout, prova il proxy successivo
+      return checkUsernameWithProxy(username, proxyIndex + 1);
     }
   }
 
-  // ========== VERIFICA BATCH CON PARALLELISMO LIMITATO ==========
+  // ========== VERIFICA BATCH CON PROGRESS ==========
   async function verifyAndFilterUsernames(usernames, onProgress) {
     const results = [];
     const total = usernames.length;
     let processed = 0;
+    let failedCount = 0;
 
-    // Dividi in batch
     for (let i = 0; i < usernames.length; i += CONFIG.VERIFY_BATCH_SIZE) {
       const batch = usernames.slice(i, i + CONFIG.VERIFY_BATCH_SIZE);
       const batchPromises = batch.map(async (username) => {
-        const exists = await usernameExists(username);
+        const result = await checkUsernameWithProxy(username);
         processed++;
-        onProgress(processed, total, username);
-        return exists ? username : null;
+        onProgress(processed, total, username, result.exists ? 'esiste' : 'inesistente/errore');
+        if (result.exists) {
+          return username;
+        } else {
+          failedCount++;
+          return null;
+        }
       });
 
       const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults.filter(r => r !== null));
     }
 
-    return results;
+    return { verifiedList: results, failedCount };
   }
 
-  // ========== GESTIONE ZIP ==========
+  // ========== FUNZIONE PER AVVIARE LA VERIFICA MANUALMENTE ==========
+  window.startVerification = async function() {
+    if (isProcessing || currentNotFollowingBack.length === 0) return;
+
+    const resultsDiv = document.getElementById('results');
+    const statusPill = document.getElementById('statusPill');
+
+    isProcessing = true;
+    verificationSkipped = false;
+    verificationFailed = false;
+
+    statusPill.textContent = '🔄 Verifica...';
+    statusPill.className = 'pill processing';
+
+    // Mostra UI di progresso
+    resultsDiv.innerHTML = `
+      <div style="text-align: center; padding: 30px;">
+        <div style="font-size: 2.5em; margin-bottom: 15px;">🔎</div>
+        <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;">Verifica account esistenti...</div>
+        <div style="color: #666; margin-bottom: 20px;">
+          Controllo quali profili esistono ancora su Instagram. Questa operazione può richiedere fino a un minuto.
+        </div>
+        <div id="verifyProgress" style="background: #e0e0e0; border-radius: 10px; height: 20px; width: 80%; margin: 0 auto; overflow: hidden;">
+          <div id="verifyProgressBar" style="width: 0%; height: 100%; background: #0095f6; transition: width 0.3s;"></div>
+        </div>
+        <div id="verifyStatus" style="margin-top: 10px; color: #555; font-size: 0.9em;"></div>
+      </div>
+    `;
+
+    const progressBar = document.getElementById('verifyProgressBar');
+    const statusEl = document.getElementById('verifyStatus');
+
+    const onProgress = (processed, total, username, state) => {
+      const percent = (processed / total) * 100;
+      if (progressBar) progressBar.style.width = percent + '%';
+      if (statusEl) statusEl.textContent = `Controllo ${processed} di ${total} (${username} - ${state})`;
+    };
+
+    try {
+      const { verifiedList, failedCount } = await verifyAndFilterUsernames(currentNotFollowingBack, onProgress);
+      
+      // Aggiorna la lista corrente
+      currentNotFollowingBack = verifiedList;
+      
+      if (failedCount > 0) {
+        verificationFailed = true;  // per mostrare un avviso
+      }
+
+      statusPill.textContent = '✅ Verifica completata';
+      statusPill.className = 'pill success';
+    } catch (error) {
+      console.error('Errore durante la verifica:', error);
+      verificationSkipped = true; // usiamo questo flag per indicare che la verifica non è riuscita
+      statusPill.textContent = '⚠️ Verifica fallita';
+      statusPill.className = 'pill error';
+    } finally {
+      isProcessing = false;
+      displayResults(1);  // aggiorna la visualizzazione con la lista (eventualmente filtrata)
+    }
+  };
+
+  // ========== GESTIONE ZIP (modificata per non fare verifica automatica) ==========
   async function processZipFile(file) {
     if (isProcessing) return;
     
@@ -149,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (zipInput) zipInput.disabled = true;
     isProcessing = true;
     verificationSkipped = false;
+    verificationFailed = false;
     
     statusPill.textContent = '🔄 Analisi...';
     statusPill.className = 'pill processing';
@@ -205,55 +307,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const followersSet = new Set(followersArray);
       let notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
 
-      // ===== VERIFICA ESISTENZA PROFILI =====
-      if (notFollowingBack.length > 0) {
-        results.innerHTML = `
-          <div style="text-align: center; padding: 30px;">
-            <div style="font-size: 2.5em; margin-bottom: 15px;">🔎</div>
-            <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;">Verifica account esistenti...</div>
-            <div style="color: #666; margin-bottom: 20px;">
-              Stiamo controllando quali profili esistono ancora su Instagram.<br>
-              Questo passaggio può richiedere alcuni secondi.
-            </div>
-            <div id="verifyProgress" style="background: #e0e0e0; border-radius: 10px; height: 20px; width: 80%; margin: 0 auto; overflow: hidden;">
-              <div id="verifyProgressBar" style="width: 0%; height: 100%; background: #0095f6; transition: width 0.3s;"></div>
-            </div>
-            <div id="verifyStatus" style="margin-top: 10px; color: #555; font-size: 0.9em;"></div>
-          </div>
-        `;
-
-        const progressEl = document.getElementById('verifyProgressBar');
-        const statusEl = document.getElementById('verifyStatus');
-
-        const onProgress = (processed, total, currentUsername) => {
-          const percent = (processed / total) * 100;
-          if (progressEl) progressEl.style.width = percent + '%';
-          if (statusEl) statusEl.textContent = `Controllo ${processed} di ${total} (${currentUsername})`;
-        };
-
-        try {
-          // Timeout globale per la verifica (max 60 secondi)
-          const verifyPromise = verifyAndFilterUsernames(notFollowingBack, onProgress);
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Verifica troppo lunga')), 60000)
-          );
-          
-          const verifiedList = await Promise.race([verifyPromise, timeoutPromise]);
-          notFollowingBack = verifiedList;
-          verificationSkipped = false;
-        } catch (verifyError) {
-          console.warn('Verifica fallita, uso lista originale:', verifyError);
-          verificationSkipped = true;
-          // Mantieni la lista originale
-        }
-      }
-      
-      // Salva i dati per la paginazione
+      // NON eseguiamo verifica automatica, lasciamo all'utente la scelta
       currentNotFollowingBack = notFollowingBack;
       currentFollowingCount = followingUsernames.length;
       currentFollowersCount = followersArray.length;
       
-      // Mostra risultati con pagina 1
+      // Mostra risultati con pagina 1 (senza verifica)
       displayResults(1);
       
       statusPill.textContent = '✅ Completo';
@@ -281,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ========== VISUALIZZAZIONE RISULTATI CON PAGINAZIONE ==========
+  // ========== VISUALIZZAZIONE RISULTATI CON PAGINAZIONE E PULSANTE VERIFICA ==========
   function displayResults(page = 1) {
     const results = document.getElementById('results');
     const notFollowingBack = currentNotFollowingBack;
@@ -302,12 +361,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const notFollowingPercentage = followingCount > 0 ? 
       ((notFollowingBack.length / followingCount) * 100).toFixed(1) : '0';
 
-    // Avviso se la verifica è stata saltata
-    const verificationWarning = verificationSkipped ? `
-      <div style="background: #fff3cd; border: 1px solid #ffecb5; border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #856404;">
-        ⚠️ <strong>Verifica automatica non completata:</strong> non è stato possibile controllare l'esistenza di tutti i profili (limiti di rete o proxy). La lista potrebbe includere account inesistenti.
-      </div>
-    ` : '';
+    // Avvisi in base allo stato della verifica
+    let verificationSection = '';
+    if (totalItems > 0) {
+      if (verificationFailed) {
+        verificationSection = `
+          <div style="background: #fff3cd; border: 1px solid #ffecb5; border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #856404;">
+            ⚠️ <strong>Verifica parziale:</strong> alcuni account non hanno potuto essere verificati a causa di errori di rete. La lista potrebbe ancora contenere profili inesistenti.
+          </div>
+        `;
+      } else if (verificationSkipped) {
+        verificationSection = `
+          <div style="background: #fff3cd; border: 1px solid #ffecb5; border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #856404;">
+            ⚠️ <strong>Verifica non eseguita:</strong> la verifica automatica è stata saltata. Puoi avviarla manualmente con il pulsante qui sotto.
+          </div>
+        `;
+      } else {
+        // Nessuna verifica eseguita, mostriamo il pulsante
+        verificationSection = `
+          <div style="background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <span style="color: #084298;">🔎 La lista potrebbe includere account inesistenti. Vuoi verificare quali profili esistono ancora?</span>
+            <button id="verifyBtn" class="ig-btn" style="padding: 8px 16px; border: none; border-radius: 6px; background: #0095f6; color: white; cursor: pointer; font-weight: 500;">Avvia verifica (lento)</button>
+          </div>
+        `;
+      }
+    }
 
     const listItems = usersToShow.map((username, index) => `
       <li style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
@@ -355,7 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     results.innerHTML = `
       <div style="max-width: 800px; margin: 0 auto;">
-        <!-- NOTA INFORMATIVA -->
+        <!-- NOTA INFORMATIVA (invariata) -->
         <div style="background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
           <div style="display: flex; align-items: flex-start; gap: 15px;">
             <div style="flex-shrink: 0; font-size: 1.5em; color: #0d6efd;">ℹ️</div>
@@ -368,18 +446,15 @@ document.addEventListener('DOMContentLoaded', function() {
                   I risultati mostrano gli account presenti nel file di esportazione che non ricambiano il follow.
                 </p>
                 <p style="margin-bottom: 10px;">
-                  <strong>Nota importante:</strong> La lista può includere account disattivati o eliminati, in quanto 
-                  Instagram fornisce dati che potrebbero non essere aggiornati in tempo reale. 
-                </p>
-                <p style="margin-bottom: 0;">
-                  Si raccomanda di verificare manualmente gli account di interesse prima di prendere qualsiasi azione.
+                  <strong>Nota importante:</strong> La lista può includere account disattivati o eliminati. 
+                  Puoi avviare una verifica automatica (lenta) per rimuovere quelli inesistenti.
                 </p>
               </div>
             </div>
           </div>
         </div>
         
-        <!-- Statistiche -->
+        <!-- Statistiche (invariate) -->
         <div style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
           <div style="text-align: center; margin-bottom: 25px;">
             <div style="font-size: 1.8em; font-weight: 800; margin-bottom: 10px; color: #262626;">
@@ -412,6 +487,9 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
         </div>
         
+        <!-- Sezione verifica (solo se ci sono account) -->
+        ${verificationSection}
+        
         <!-- Lista risultati -->
         ${notFollowingBack.length > 0 ? `
           <div style="background: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
@@ -421,16 +499,13 @@ document.addEventListener('DOMContentLoaded', function() {
                   Account che non ti seguono
                 </div>
                 <div style="color: #8e8e8e; font-size: 0.9em;">
-                  ${totalItems} account verificati
+                  ${totalItems} account
                 </div>
               </div>
               <div style="background: #ff4444; color: white; padding: 6px 15px; border-radius: 20px; font-weight: 700;">
                 ${totalItems}
               </div>
             </div>
-            
-            <!-- Avviso se verifica saltata -->
-            ${verificationWarning}
             
             <div style="background: #fff8e1; padding: 8px 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; color: #856404;">
               Mostrati da ${startIndex + 1} a ${endIndex} di ${totalItems} account
@@ -469,25 +544,31 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
         `}
         
-        <!-- Note tecniche -->
+        <!-- Note tecniche (aggiornate) -->
         <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.85em; color: #666;">
           <div style="font-weight: 600; margin-bottom: 8px; color: #262626;">ℹ️ Note tecniche</div>
           <div style="line-height: 1.5;">
             • I dati sono estratti direttamente dal file di esportazione di Instagram<br>
-            • Gli account inesistenti vengono rimossi automaticamente (tramite proxy)<br>
-            • La verifica può fallire se il proxy è sovraccarico: in tal caso viene mostrato un avviso<br>
+            • La verifica online degli account è disponibile su richiesta (pulsante) ma può essere lenta e non garantita al 100% a causa di blocchi di Instagram<br>
+            • Gli account verificati come inesistenti vengono rimossi dalla lista<br>
             • Per risultati ottimali, si consiglia di scaricare un file di esportazione aggiornato
           </div>
         </div>
       </div>
     `;
+
+    // Aggiungi event listener al pulsante di verifica se presente
+    const verifyBtn = document.getElementById('verifyBtn');
+    if (verifyBtn) {
+      verifyBtn.addEventListener('click', window.startVerification);
+    }
   }
 
   window.updateResultsPage = function(page) {
     displayResults(page);
   };
 
-  // ========== INIZIALIZZAZIONE ==========
+  // ========== INIZIALIZZAZIONE (invariata) ==========
   loadJSZip().then(() => {
     const results = document.getElementById('results');
     const statusPill = document.getElementById('statusPill');
@@ -579,6 +660,7 @@ document.addEventListener('DOMContentLoaded', function() {
         currentFollowingCount = 0;
         currentFollowersCount = 0;
         verificationSkipped = false;
+        verificationFailed = false;
         if (zipInput) {
           zipInput.value = '';
           zipInput.disabled = false;
