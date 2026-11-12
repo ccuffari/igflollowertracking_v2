@@ -11,12 +11,12 @@
     --muted: #a8a8a8;
     --border: #2a2a2e;
     --primary: #e1306c;
-    --secondary: #833ab4;
+    --secondary: #c13584;
     --accent: #f77737;
     --success: #2ecc71;
-    --warning: #f5b942;
+    --warning: #f77737;
     --error: #ff5c7a;
-    --info: #4f8ef7;
+    --info: #c13584;
     --grad-start: #f09433;
     --grad-mid: #dc2743;
     --grad-end: #bc1888;
@@ -412,7 +412,7 @@ a:hover {
     justify-content: space-between;
     gap: 12px;
     padding: 10px 14px;
-    border-bottom: 1px solid rgba(35, 52, 77, .7);
+    border-bottom: 1px solid var(--border);
 }
 
 .res-row:last-child {
@@ -506,15 +506,15 @@ a:hover {
 }
 
 .res-btn--open {
-    background: rgba(79, 142, 247, .12);
-    border-color: rgba(79, 142, 247, .3);
-    color: #a8c6ff;
+    background: rgba(193, 53, 132, .14);
+    border-color: rgba(193, 53, 132, .35);
+    color: #f0b3d6;
 }
 
 .res-btn--open:hover {
-    background: rgba(79, 142, 247, .2);
-    color: #dbe8ff;
-    border-color: rgba(79, 142, 247, .5);
+    background: rgba(193, 53, 132, .24);
+    color: #ffd6ea;
+    border-color: rgba(193, 53, 132, .55);
 }
 
 .res-btn--mark.is-marked {
@@ -601,9 +601,9 @@ a:hover {
 }
 
 .res-note--info {
-    background: rgba(79, 142, 247, .1);
-    border: 1px solid rgba(79, 142, 247, .24);
-    color: #dbe8ff;
+    background: rgba(193, 53, 132, .12);
+    border: 1px solid rgba(193, 53, 132, .3);
+    color: #f0b3d6;
 }
 
 .res-note button {
@@ -652,7 +652,7 @@ a:hover {
 
 .app-footer__disclaimer {
     font-size: .76rem;
-    color: #6b7c96;
+    color: var(--muted);
     line-height: 1.5;
 }
 
@@ -693,9 +693,9 @@ a:hover {
 }
 
 .igft-alert--info {
-    background: rgba(79, 142, 247, .1);
-    border-color: rgba(79, 142, 247, .28);
-    color: #dbe8ff;
+    background: rgba(193, 53, 132, .12);
+    border-color: rgba(193, 53, 132, .32);
+    color: #f0b3d6;
 }
 
 .igft-alert--warning {

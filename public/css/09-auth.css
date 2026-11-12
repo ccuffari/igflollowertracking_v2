@@ -17,7 +17,7 @@
     padding: 8px 14px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     color: var(--text);
     font-size: .875rem;
     font-weight: 600;
@@ -98,11 +98,11 @@
 }
 
 .igft-danger-link:hover {
-    color: #b91c1c;
+    color: #ff9db0;
 }
 
 .footer-links .igft-inline-link {
-    color: #666;
+    color: var(--muted);
     font-size: .9rem;
     font-weight: 400;
     text-decoration: none;
@@ -145,7 +145,7 @@ body.igft-modal-open {
     max-width: 520px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
-    background: #fff;
+    background: var(--surface);
     border-radius: 14px;
     padding: 28px 26px 24px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, .25);
@@ -222,7 +222,7 @@ body.igft-modal-open {
 }
 
 .igft-tab.is-active {
-    background: #fff;
+    background: var(--surface);
     color: var(--text);
     box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
 }
@@ -245,11 +245,11 @@ body.igft-modal-open {
     font: inherit;
     font-weight: 400;
     color: var(--text);
-    background: #fff;
+    background: var(--surface);
 }
 
 .igft-field input:focus {
-    outline: 2px solid rgba(64, 93, 230, .35);
+    outline: 2px solid rgba(225, 48, 108, .4);
     border-color: var(--primary);
 }
 
@@ -294,7 +294,7 @@ body.igft-modal-open {
     gap: 10px;
     width: 100%;
     padding: 11px 16px;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
 }
@@ -335,21 +335,21 @@ body.igft-modal-open {
 }
 
 .igft-alert--info {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
+    background: rgba(193, 53, 132, .12);
+    border: 1px solid rgba(193, 53, 132, .32);
+    color: #f0b3d6;
 }
 
 .igft-alert--warning {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    color: #92400e;
+    background: rgba(247, 119, 55, .12);
+    border: 1px solid rgba(247, 119, 55, .32);
+    color: #ffc9a3;
 }
 
 .igft-alert--error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
+    background: rgba(255, 92, 122, .12);
+    border: 1px solid rgba(255, 92, 122, .32);
+    color: #ff9db0;
 }
 
 .igft-alert .igft-link {
@@ -394,7 +394,7 @@ body.igft-modal-open {
     padding: 13px 15px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--surface);
     color: var(--text);
     font-size: .92rem;
     font-weight: 600;
@@ -459,7 +459,7 @@ body.igft-modal-open {
 }
 
 .igft-storage-note--cloud {
-    color: #047857;
+    color: #7fe3a8;
 }
 
 .igft-dot {
@@ -493,7 +493,7 @@ body.igft-modal-open {
     padding: 12px 14px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--surface);
 }
 
 .igft-row__main {
@@ -628,15 +628,15 @@ body.igft-modal-open {
 }
 
 .igft-save-note--success {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    color: #047857;
+    background: rgba(46, 204, 113, .12);
+    border: 1px solid rgba(46, 204, 113, .32);
+    color: #7fe3a8;
 }
 
 .igft-save-note--error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
+    background: rgba(255, 92, 122, .12);
+    border: 1px solid rgba(255, 92, 122, .32);
+    color: #ff9db0;
 }
 
 /* ---------------- TOAST ---------------- */
@@ -656,7 +656,7 @@ body.igft-modal-open {
 .igft-toast {
     padding: 11px 15px;
     border-radius: 10px;
-    background: #111827;
+    background: #121214;
     color: #fff;
     font-size: .87rem;
     line-height: 1.45;

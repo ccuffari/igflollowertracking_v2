@@ -10,21 +10,21 @@
 }
 
 .pill.success {
-    background: #ecfdf5;
+    background: rgba(46, 204, 113, .12);
     color: var(--success);
-    border-color: #a7f3d0;
+    border-color: rgba(46, 204, 113, .35);
 }
 
 .pill.error {
-    background: #fef2f2;
+    background: rgba(255, 92, 122, .12);
     color: var(--error);
-    border-color: #fecaca;
+    border-color: rgba(255, 92, 122, .35);
 }
 
 .pill.warning {
-    background: #fffbeb;
+    background: rgba(247, 119, 55, .12);
     color: var(--warning);
-    border-color: #fed7aa;
+    border-color: rgba(247, 119, 55, .35);
 }
 
 .dropdown {
@@ -82,12 +82,12 @@
 }
 
 .code {
-    background: #f1f5f9;
+    background: var(--surface-alt);
     padding: 4px 6px;
     border-radius: 4px;
     font-size: .75rem;
     word-break: break-word;
-    color: #475569;
+    color: var(--muted);
 }
 
 .faq-list {
@@ -124,7 +124,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: #111827;
+    background: #121214;
     color: #fff;
     padding: 20px;
     box-shadow: 0 -2px 10px rgba(0, 0, 0, .12);
@@ -198,12 +198,12 @@
 }
 
 .results-scroll::-webkit-scrollbar-track {
-    background: #f1f5f1;
+    background: var(--surface-alt);
     border-radius: 3px;
 }
 
 .results-scroll::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
+    background: var(--ig-grad-mid);
     border-radius: 3px;
 }
 

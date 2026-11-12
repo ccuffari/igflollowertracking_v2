@@ -91,7 +91,9 @@
   function withTimeout(promise, ms, message) {
     return new Promise(function (resolve, reject) {
       var timer = setTimeout(function () {
-        reject(new Error(message || 'Operazione cloud scaduta.'));
+        var error = new Error(message || 'Operazione cloud scaduta.');
+        error.code = 'igft/timeout';
+        reject(error);
       }, ms);
       Promise.resolve(promise).then(function (value) {
         clearTimeout(timer);
@@ -101,6 +103,12 @@
         reject(error);
       });
     });
+  }
+
+  // Un timeout è un rallentamento, non un errore di configurazione: non deve
+  // degradare la sessione a locale né mostrare un avviso bloccante all'utente.
+  function isTimeout(error) {
+    return !!error && error.code === 'igft/timeout';
   }
 
   function firebaseState() {
@@ -365,19 +373,25 @@
           storage: 'cloud'
         };
       } catch (error) {
-        state.cloudError = errorMessage(error);
-        console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale', error);
-        state.storage = 'local-fallback';
-        if (state.user) {
-          try {
-            // Consente di riprovare la migrazione al prossimo login/retry.
-            localStorage.removeItem(KEYS.migratedPrefix + state.user.uid);
-          } catch (storageError) {
-            // Non bloccante.
+        if (isTimeout(error)) {
+          // La copia locale è già salvata: il cloud può completare più tardi.
+          state.cloudError = null;
+          console.warn('[IGFT] salvataggio cloud lento, copia locale disponibile', error);
+        } else {
+          state.cloudError = errorMessage(error);
+          console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale', error);
+          state.storage = 'local-fallback';
+          if (state.user) {
+            try {
+              // Consente di riprovare la migrazione al prossimo login/retry.
+              localStorage.removeItem(KEYS.migratedPrefix + state.user.uid);
+            } catch (storageError) {
+              // Non bloccante.
+            }
           }
         }
         notify();
-        if (local) return { id: local.id, summary: local.summary, storage: 'local-fallback' };
+        if (local) return { id: local.id, summary: local.summary, storage: state.storage };
       }
     }
 
@@ -544,6 +558,11 @@
         }), 8000, 'Sincronizzazione del profilo troppo lenta.');
         return { synced: true };
       } catch (error) {
+        if (isTimeout(error)) {
+          // Scrittura ancora in corso: la copia locale è già persistita.
+          console.warn('[IGFT] sincronizzazione profilo disattivato lenta, resta la copia locale', error);
+          return { synced: true };
+        }
         state.cloudError = errorMessage(error);
         notify();
         return { synced: false, error: state.cloudError };
@@ -564,6 +583,10 @@
         await withTimeout(userDoc().collection('deactivated').doc(normalized).delete(), 8000, 'Sincronizzazione del profilo troppo lenta.');
         return { synced: true };
       } catch (error) {
+        if (isTimeout(error)) {
+          console.warn('[IGFT] rimozione profilo disattivato lenta, resta la copia locale', error);
+          return { synced: true };
+        }
         state.cloudError = errorMessage(error);
         notify();
         return { synced: false, error: state.cloudError };
@@ -692,12 +715,20 @@
     // profili disattivati e la migrazione sono best-effort e non devono mai
     // degradare l'app a locale se sono semplicemente lente o parziali.
     try {
-      await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
+      await withTimeout(refreshCloudAnalyses(), 20000, 'Lettura dello storico cloud troppo lenta.');
       state.cloudError = null;
     } catch (error) {
-      state.cloudError = errorMessage(error);
-      state.storage = 'local-fallback';
-      console.warn('[IGFT] sincronizzazione cloud non disponibile', error);
+      if (isTimeout(error)) {
+        // Il cloud è raggiungibile ma lento: restiamo in modalità cloud e
+        // riproviamo in background, senza mostrare un errore all'utente.
+        state.storage = 'cloud';
+        state.cloudError = null;
+        console.warn('[IGFT] lettura storico cloud lenta, nuovo tentativo in background', error);
+      } else {
+        state.cloudError = errorMessage(error);
+        state.storage = 'local-fallback';
+        console.warn('[IGFT] sincronizzazione cloud non disponibile', error);
+      }
     } finally {
       state.loading = false;
       notify();
@@ -719,6 +750,15 @@
       })
       .catch(function (error) {
         console.warn('[IGFT] unione profili disattivati non completata, verrà ritentata', error);
+      })
+      .then(function () {
+        if (!guard()) return;
+        return withTimeout(refreshCloudAnalyses(), 20000, 'Lettura dello storico cloud troppo lenta.')
+          .catch(function (error) {
+            if (!isTimeout(error)) {
+              console.warn('[IGFT] lettura storico cloud non completata', error);
+            }
+          });
       })
       .then(function () {
         if (!guard()) return;

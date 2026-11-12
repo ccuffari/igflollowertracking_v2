@@ -49,7 +49,7 @@
 }
 
 .user-item:hover {
-    background: #f0f4ff;
+    background: rgba(225, 48, 108, .08);
 }
 
 .user-info {
@@ -130,7 +130,7 @@
     justify-content: space-between;
     padding: 10px;
     border-radius: 8px;
-    background: #fff;
+    background: var(--surface);
     border: 1px solid var(--border);
     margin-bottom: 8px;
     flex-wrap: wrap;
