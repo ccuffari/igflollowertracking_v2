@@ -32,7 +32,8 @@
     maxCloudAnalyses: 100,
     chunkSize: 900,
     maxChunks: 400,
-    batchSize: 400
+    batchSize: 400,
+    deactivatedPageSize: 200
   };
 
   var state = {
@@ -352,10 +353,10 @@
       try {
         var saved = await withTimeout(
           saveCloudAnalysis(local ? local.id : null, normalized),
-          12000,
+          25000,
           'Sincronizzazione cloud troppo lenta.'
         );
-        await withTimeout(refreshCloudAnalyses(), 8000, 'Lettura dello storico cloud troppo lenta.');
+        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
         state.cloudError = null;
         notify();
         return {
@@ -386,7 +387,7 @@
   async function listAnalyses() {
     if (isCloud()) {
       try {
-        await refreshCloudAnalyses();
+        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
       } catch (error) {
         state.cloudError = errorMessage(error);
       }
@@ -577,25 +578,46 @@
       : markDeactivated(username);
   }
 
+  // Legge i profili disattivati dal cloud a pagine: con liste grandi una singola
+  // get() può superare il timeout e far sembrare Firestore non disponibile.
+  async function readCloudDeactivated(doc) {
+    var cloudMap = new Map();
+    var lastDoc = null;
+
+    while (true) {
+      var query = doc.collection('deactivated')
+        .orderBy('__name__')
+        .limit(LIMITS.deactivatedPageSize);
+      if (lastDoc) query = query.startAfter(lastDoc);
+      var snapshot = await withTimeout(query.get(), 10000, 'Lettura profili disattivati troppo lenta.');
+      if (!snapshot.docs.length) break;
+
+      snapshot.docs.forEach(function (item) {
+        var data = item.data() || {};
+        var username = Core.normalizeUsername(data.username || item.id);
+        if (!username) return;
+        var markedAt = data.markedAt;
+        cloudMap.set(username, {
+          username: username,
+          markedAt: markedAt && typeof markedAt.toDate === 'function'
+            ? markedAt.toDate().toISOString()
+            : (markedAt || new Date().toISOString())
+        });
+      });
+
+      if (snapshot.docs.length < LIMITS.deactivatedPageSize) break;
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    }
+
+    return cloudMap;
+  }
+
   async function mergeDeactivatedIntoCloud(uid) {
     var doc = userDoc();
     var fb = firebaseState();
     if (!doc || !fb) return;
 
-    var snapshot = await doc.collection('deactivated').get();
-    var cloudMap = new Map();
-    snapshot.docs.forEach(function (item) {
-      var data = item.data() || {};
-      var username = Core.normalizeUsername(data.username || item.id);
-      if (!username) return;
-      var markedAt = data.markedAt;
-      cloudMap.set(username, {
-        username: username,
-        markedAt: markedAt && typeof markedAt.toDate === 'function'
-          ? markedAt.toDate().toISOString()
-          : (markedAt || new Date().toISOString())
-      });
-    });
+    var cloudMap = await readCloudDeactivated(doc);
 
     var pending = [];
     state.deactivated.forEach(function (item, username) {
@@ -610,7 +632,7 @@
           markedAt: new Date(item.markedAt)
         });
       });
-      await batch.commit();
+      await withTimeout(batch.commit(), 10000, 'Scrittura profili disattivati troppo lenta.');
     }
 
     var merged = new Map(cloudMap);
@@ -666,10 +688,11 @@
     state.error = null;
     notify();
 
+    // L'accesso al cloud dipende solo dalla lettura dello storico: l'unione dei
+    // profili disattivati e la migrazione sono best-effort e non devono mai
+    // degradare l'app a locale se sono semplicemente lente o parziali.
     try {
-      await withTimeout(mergeDeactivatedIntoCloud(user.uid), 10000, 'Sincronizzazione profili disattivati troppo lenta.');
-      await withTimeout(migrateLocalAnalyses(user.uid), 12000, 'Migrazione analisi troppo lenta.');
-      await withTimeout(refreshCloudAnalyses(), 8000, 'Lettura dello storico cloud troppo lenta.');
+      await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
       state.cloudError = null;
     } catch (error) {
       state.cloudError = errorMessage(error);
@@ -679,6 +702,34 @@
       state.loading = false;
       notify();
     }
+
+    if (state.storage !== 'cloud') return;
+
+    syncCloudInBackground(user.uid);
+  }
+
+  function syncCloudInBackground(uid) {
+    var guard = function () {
+      return !!state.user && state.user.uid === uid && state.storage === 'cloud';
+    };
+
+    mergeDeactivatedIntoCloud(uid)
+      .then(function () {
+        if (guard()) state.cloudError = null;
+      })
+      .catch(function (error) {
+        console.warn('[IGFT] unione profili disattivati non completata, verrà ritentata', error);
+      })
+      .then(function () {
+        if (!guard()) return;
+        return withTimeout(migrateLocalAnalyses(uid), 30000, 'Migrazione analisi troppo lenta.')
+          .catch(function (error) {
+            console.warn('[IGFT] migrazione analisi non completata, verrà ritentata', error);
+          });
+      })
+      .then(function () {
+        if (guard()) notify();
+      });
   }
 
   function switchToLocal() {

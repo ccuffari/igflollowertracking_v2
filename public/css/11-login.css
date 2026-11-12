@@ -7,8 +7,8 @@
     justify-content: center;
     padding: 32px 16px;
     background:
-        radial-gradient(800px 460px at 14% -10%, rgba(45, 212, 191, .14), transparent 60%),
-        radial-gradient(760px 460px at 90% 4%, rgba(129, 140, 248, .14), transparent 55%),
+        radial-gradient(800px 460px at 14% -10%, rgba(225, 48, 108, .16), transparent 60%),
+        radial-gradient(760px 460px at 90% 4%, rgba(131, 58, 180, .18), transparent 55%),
         var(--bg);
 }
 
@@ -50,7 +50,7 @@
 }
 
 .login-card {
-    background: linear-gradient(180deg, rgba(22, 36, 58, .75), rgba(14, 23, 39, .85));
+    background: linear-gradient(180deg, rgba(28, 28, 31, .8), rgba(15, 15, 17, .9));
     border: 1px solid var(--border);
     border-radius: 18px;
     padding: 26px;
@@ -72,7 +72,7 @@
 .login-tabs {
     display: flex;
     gap: 6px;
-    background: rgba(10, 15, 28, .5);
+    background: rgba(8, 8, 10, .6);
     border: 1px solid var(--border);
     border-radius: 11px;
     padding: 4px;
@@ -112,18 +112,18 @@
     padding: 11px 12px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgba(10, 15, 28, .55);
+    background: rgba(8, 8, 10, .6);
     color: var(--text);
     font: inherit;
     font-weight: 400;
 }
 
 .login-field input::placeholder {
-    color: #64748b;
+    color: #7a7a80;
 }
 
 .login-field input:focus {
-    outline: 2px solid rgba(45, 212, 191, .3);
+    outline: 2px solid rgba(225, 48, 108, .35);
     border-color: var(--primary);
 }
 

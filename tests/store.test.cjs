@@ -107,3 +107,56 @@ test('saveAnalysis resta locale se Firestore non è raggiungibile', async () => 
   const list = await store.listAnalyses();
   assert.equal(list.length, 1);
 });
+
+test('switchToCloud resta cloud anche se i disattivati si sincronizzano lentamente', async () => {
+  let release;
+  const slowDeactivated = new Promise((resolve) => { release = resolve; });
+
+  const analysesQuery = {
+    orderBy() { return analysesQuery; },
+    limit() { return analysesQuery; },
+    get() { return Promise.resolve({ docs: [] }); }
+  };
+  const deactivatedQuery = {
+    orderBy() { return deactivatedQuery; },
+    limit() { return deactivatedQuery; },
+    startAfter() { return deactivatedQuery; },
+    get() { return slowDeactivated.then(() => ({ docs: [] })); }
+  };
+  const userDoc = {
+    collection(name) {
+      return name === 'analyses' ? analysesQuery : deactivatedQuery;
+    }
+  };
+  const firebase = {
+    ready: Promise.resolve(),
+    available: true,
+    db: {
+      collection() { return { doc() { return userDoc; } }; },
+      batch() {
+        return {
+          set() {},
+          delete() {},
+          commit() { return Promise.resolve(); }
+        };
+      }
+    },
+    auth: {
+      onAuthStateChanged(callback) {
+        callback({ uid: 'user-1', email: 'test@example.com' });
+      }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+
+  const { store } = createStore(firebase);
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  const status = store.getStatus();
+  assert.equal(status.storage, 'cloud');
+  assert.equal(status.cloudError, null);
+
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+});
