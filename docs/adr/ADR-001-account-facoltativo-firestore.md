@@ -22,14 +22,18 @@ La nuova versione deve:
 
 - **Firebase Authentication** con provider Email/Password e Google. Nessun backend custom.
 - **Cloud Firestore** come storage per utente, con regole di sicurezza owner-only.
-- **localStorage** come storage per la modalità ospite e come cache locale.
+- **Firestore è la fonte di verità per gli utenti autenticati**: analisi e profili disattivati
+  vengono scritti e riletti dal database a ogni accesso. **localStorage** resta lo storage
+  della modalità ospite e una cache per l'uso offline; le modifiche fatte senza rete vengono
+  accodate e sincronizzate automaticamente. Il database predefinito `(default)` del progetto
+  `igfollowertracking-v2` è attivo in regione `eur3`.
 - **Astrazione `IGFTStore`** con due backend dietro la stessa API (`markDeactivated`,
-  `saveAnalysis`, `getAnalysis`, …): il resto dell'app non conosce il backend attivo.
+  `saveAnalysis`, `getAnalysis`, ...): il resto dell'app non conosce il backend attivo.
 - **Modello dati**:
-  - `users/{uid}` — impostazioni (`settings.autoSave`);
-  - `users/{uid}/deactivated/{username}` — memoria dei profili disattivati;
-  - `users/{uid}/analyses/{id}` — metadati del report;
-  - `users/{uid}/analyses/{id}/items/chunk-NNN` — username in blocchi da 900
+  - `users/{uid}` - profilo (`email`, `displayName`) e impostazioni (`settings.autoSave`);
+  - `users/{uid}/deactivated/{username}` - memoria dei profili disattivati;
+  - `users/{uid}/analyses/{id}` - metadati del report;
+  - `users/{uid}/analyses/{id}/items/chunk-NNN` - username in blocchi da 900
     (evita il limite di 1 MiB per documento).
 - **Filtro dei disattivati al momento dell'analisi**, non a ogni render: la marcatura fatta
   dopo un'analisi resta visibile nel report corrente con badge "disattivato" e viene esclusa
@@ -37,7 +41,8 @@ La nuova versione deve:
 - **Configurazione Firebase da `/__/firebase/init.json`** (Hosting), con override opzionale
   per sviluppo locale; nessun segreto nel repository.
 - **Degrado controllato**: se Firebase/Firestore non è disponibile, l'app continua a
-  funzionare in locale e l'interfaccia mostra lo stato "solo su questo dispositivo".
+  funzionare con la cache locale e mostra lo stato "modifiche in coda"; al ritorno della
+  connessione i dati vengono sincronizzati con il database.
 
 ## Alternative valutate
 

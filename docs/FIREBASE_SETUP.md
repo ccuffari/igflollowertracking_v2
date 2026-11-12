@@ -9,8 +9,8 @@ La web app resta statica: **nessun backend custom**, solo Firebase Authenticatio
 | --- | --- |
 | Firebase Hosting | Serving dei file statici in `public/` |
 | Firebase Authentication | Registrazione/login email-password e Google (facoltativi) |
-| Cloud Firestore | Storico analisi, profili disattivati, impostazioni per utente |
-| localStorage | Modalità ospite e cache locale di analisi e profili disattivati (salvataggio locale immediato) |
+| Cloud Firestore | Fonte di verità per profilo (email/nome), storico analisi, profili disattivati e impostazioni |
+| localStorage | Modalità ospite e cache locale per l'uso offline; le modifiche in coda vengono inviate a Firestore |
 
 La configurazione web viene letta a runtime da `/__/firebase/init.json`, endpoint riservato
 di Firebase Hosting: **nessuna chiave o configurazione hardcodata nel repository**.
@@ -34,9 +34,13 @@ Senza questi passaggi il login restituisce `auth/operation-not-allowed`.
 
 ## 2. Creare Firestore e pubblicare le regole
 
+Stato del progetto `igfollowertracking-v2`: database **`(default)`** creato in modalità
+`FIRESTORE_NATIVE`, regione **`eur3`** (multi-regione UE), e regole del repository pubblicate.
+Per un nuovo ambiente:
+
 1. Console Firebase → **Firestore Database** → **Create database**.
 2. Scegliere la **regione** (una sola volta, non modificabile): per l'Italia una regione UE
-   (es. `europe-west8` / `europe-west1`). La scelta va riportata nell'informativa privacy.
+   (es. `eur3` / `europe-west8` / `europe-west1`). La scelta va riportata nell'informativa privacy.
 3. Modalità: **production mode** (le regole del repository limitano già l'accesso).
 4. Pubblicare le regole:
 
@@ -45,10 +49,11 @@ firebase deploy --only firestore:rules
 ```
 
 Le regole in `firestore.rules` consentono a ogni utente di leggere/scrivere solo
-`users/{uid}` e le relative subcollection.
+`users/{uid}` e le relative subcollection. Il documento utente contiene `email`,
+`displayName`, `settings.autoSave` e i timestamp `createdAt`/`updatedAt`.
 
-Senza regole pubblicate il login funziona ma storico e profili disattivati restano
-in locale (`local-fallback`) e l'interfaccia mostra un avviso con "Riprova".
+Senza database o regole pubblicate il login funziona ma analisi e profili disattivati
+restano nella cache locale (`local-fallback`) e l'interfaccia mostra un avviso con "Riprova".
 
 ## 3. Domini autorizzati
 
@@ -140,9 +145,10 @@ fornitore (Google Firebase) e modalità di cancellazione. La modalità ospite re
 
 ## 9. Troubleshooting sincronizzazione
 
-La console del browser non deve mostrare errori quando Firestore non è attivo: l'app resta
-utilizzabile e salva tutto in locale. Una singola riga informativa del tipo
-`[IGFT] sincronizzazione cloud in background ...` è attesa e non richiede azioni.
+La console del browser non deve mostrare errori quando Firestore non è raggiungibile: l'app
+resta utilizzabile con la cache locale e le modifiche vengono messe in coda. Una singola riga
+informativa del tipo `[IGFT] sincronizzazione Firestore in background ...` è attesa e non
+richiede azioni.
 
 Se compare, verificare in ordine:
 
@@ -160,5 +166,7 @@ Se compare, verificare in ordine:
 4. **Rete/proxy**: se Firestore è raggiungibile ma lento, l'app ritenta da sola con backoff
    (1, 2, 4, 8 minuti) senza bloccare l'interfaccia.
 
-Nota: i timeout sono trattati come rallentamenti, non come guasti. Il salvataggio locale
-avviene sempre per primo; l'allineamento cloud è best-effort e ritentato in background.
+Nota: per gli utenti autenticati Firestore è la fonte di verità: analisi e profili
+disattivati vengono scritti e riletti dal database, mentre localStorage resta solo una cache
+per l'uso offline. Le modifiche salvate senza rete vengono inviate automaticamente al
+ripristino della connessione (con backoff).
