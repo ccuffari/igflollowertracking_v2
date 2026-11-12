@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Regole Firestore per Instagram Follower Tracker.
+// Ogni utente può leggere e modificare esclusivamente i propri dati.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['settings', 'createdAt', 'updatedAt'])
+        && (!('settings' in request.resource.data)
+          || request.resource.data.settings.keys().hasOnly(['autoSave']));
+
+      // Profili marcati come disattivati, con ID documento = username.
+      match /deactivated/{username} {
+        allow read, delete: if isOwner(uid);
+
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['username', 'markedAt'])
+          && request.resource.data.username == username
+          && username.matches('^[a-z0-9._]{1,50}$')
+          && request.resource.data.markedAt is timestamp;
+      }
+
+      // Metadati dell'analisi. Il contenuto è suddiviso in chunk nella subcollection items.
+      match /analyses/{analysisId} {
+        allow read, delete: if isOwner(uid);
+
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly([
+            'createdAt', 'followingCount', 'followersCount', 'notFollowingCount',
+            'removedDeactivatedCount', 'truncated', 'chunkCount'
+          ])
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.followingCount is int
+          && request.resource.data.followersCount is int
+          && request.resource.data.notFollowingCount is int
+          && request.resource.data.chunkCount is int
+          && request.resource.data.chunkCount >= 0
+          && request.resource.data.chunkCount <= 400;
+
+        match /items/{chunkId} {
+          allow read, delete: if isOwner(uid);
+
+          allow create, update: if isOwner(uid)
+            && request.resource.data.keys().hasOnly(['usernames'])
+            && request.resource.data.usernames is list
+            && request.resource.data.usernames.size() <= 900;
+        }
+      }
+    }
+  }
+}

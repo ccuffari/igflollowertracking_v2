@@ -1,0 +1,139 @@
+# Setup Firebase — account facoltativo, storico e profili disattivati
+
+Questa guida copre la configurazione Firebase necessaria alla versione `dev` dell'app.
+La web app resta statica: **nessun backend custom**, solo Firebase Authentication + Cloud Firestore.
+
+## Architettura in breve
+
+| Componente | Uso |
+| --- | --- |
+| Firebase Hosting | Serving dei file statici in `public/` |
+| Firebase Authentication | Registrazione/login email-password e Google (facoltativi) |
+| Cloud Firestore | Storico analisi, profili disattivati, impostazioni per utente |
+| localStorage | Modalità ospite e cache locale dei profili disattivati |
+
+La configurazione web viene letta a runtime da `/__/firebase/init.json`, endpoint riservato
+di Firebase Hosting: **nessuna chiave o configurazione hardcodata nel repository**.
+Se l'endpoint non è disponibile (file locale, server statico generico) l'app resta in
+modalità ospite e mostra l'avviso nell'interfaccia di accesso.
+
+## Prerequisiti
+
+- Progetto Firebase `igfollowertracking-v2` (già referenziato in `.firebaserc`).
+- Firebase CLI installata e autenticata (`firebase login`).
+- Piano Spark sufficiente per uso personale; valutare Blaze se si usano preview channel o volumi elevati.
+
+## 1. Abilitare i metodi di accesso
+
+Console Firebase → **Authentication** → **Sign-in method**:
+
+1. **Email/Password**: abilitare.
+2. **Google** (opzionale ma consigliato): abilitare e impostare l'email di supporto del progetto.
+
+Senza questi passaggi il login restituisce `auth/operation-not-allowed`.
+
+## 2. Creare Firestore e pubblicare le regole
+
+1. Console Firebase → **Firestore Database** → **Create database**.
+2. Scegliere la **regione** (una sola volta, non modificabile): per l'Italia una regione UE
+   (es. `europe-west8` / `europe-west1`). La scelta va riportata nell'informativa privacy.
+3. Modalità: **production mode** (le regole del repository limitano già l'accesso).
+4. Pubblicare le regole:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Le regole in `firestore.rules` consentono a ogni utente di leggere/scrivere solo
+`users/{uid}` e le relative subcollection.
+
+Senza regole pubblicate il login funziona ma storico e profili disattivati restano
+in locale (`local-fallback`) e l'interfaccia mostra un avviso con "Riprova".
+
+## 3. Domini autorizzati
+
+Console Firebase → **Authentication** → **Settings** → **Authorized domains**.
+Verificare che siano presenti:
+
+- dominio di produzione (es. `instagram-follower-tracker.com`);
+- dominio Firebase Hosting (`igfollowertracking-v2.web.app`, `*.firebaseapp.com`);
+- `localhost` (presente di default, serve per lo sviluppo).
+
+I preview channel usano domini `*.web.app` già coperti dal wildcard Firebase, ma verificare
+in caso di domini personalizzati.
+
+## 4. Deploy hosting
+
+```bash
+firebase deploy --only hosting
+```
+
+La pipeline GitHub Actions (`.github/workflows/main.yml`) deploya su push verso `main`
+con il secret `GCP_SA_KEY`.
+
+## 5. Branch `dev` e anteprima
+
+Il branch `dev` non è collegato a un deploy automatico: si evita di pubblicare su produzione
+prima della validazione.
+
+Opzioni per provare il branch:
+
+- **Preview channel** (richiede piano Blaze):
+  ```bash
+  firebase hosting:channel:deploy dev --expires 30d
+  ```
+- **Emulatori locali** (consigliato, nessun costo):
+  ```bash
+  firebase emulators:start --only auth,firestore,hosting
+  ```
+- **Server statico locale** con configurazione manuale (vedi sotto).
+
+### Configurazione per hosting non-Firebase
+
+Su `http://localhost` con un server statico qualsiasi `/__/firebase/init.json` non esiste.
+Creare `public/scripts/firebase-config.js` (file ignorato da git) con:
+
+```js
+window.IGFT_FIREBASE_CONFIG = {
+  apiKey: "...",
+  authDomain: "igfollowertracking-v2.firebaseapp.com",
+  projectId: "igfollowertracking-v2",
+  appId: "..."
+};
+```
+
+e includerlo in `index.html` prima di `scripts/firebase-init.js`.
+In alternativa, da console del browser:
+
+```js
+localStorage.setItem('igft.firebaseConfig', JSON.stringify({ /* stessi campi */ }));
+```
+
+Questi valori sono pubblici per natura (non sono segreti), ma è buona norma non versionarli.
+
+## 6. Verifica funzionale
+
+Checklist dopo il deploy:
+
+1. Modalità ospite: analisi ZIP, marcatura "Disattivato", ricaricamento pagina → il profilo
+   resta marcato (localStorage) e viene escluso dalla nuova analisi.
+2. Registrazione email/password: arrivo email di verifica; login; analisi salvata.
+3. Ricaricamento su un altro browser/dispositivo: storico e profili disattivati presenti.
+4. Eliminazione singola analisi, eliminazione account e dati.
+5. Disattivazione del salvataggio automatico: la nuova analisi non compare nello storico.
+6. Regole Firestore: un utente non può leggere i dati di un altro (verifica con REST/emulator).
+
+## 7. Costi e manutenzione
+
+- Firestore: ogni analisi salvata consuma 1 scrittura per il documento + 1 per blocco da 900
+  username (circa 12 scritture per 10.000 profili). La lettura dello storico paginato consuma
+  una lettura per analisi elencata.
+- Impostare un **budget alert** in Google Cloud.
+- Le analisi sono mantenute finché l'utente non le elimina; non è prevista al momento una
+  retention automatica. Se necessario, valutare un job schedulato di pulizia.
+
+## 8. Privacy
+
+L'attivazione dell'area personale introduce un trattamento su server: l'informativa privacy
+(`public/privacy-policy.html`) è stata aggiornata con finalità, dati trattati, conservazione,
+fornitore (Google Firebase) e modalità di cancellazione. La modalità ospite resta locale.

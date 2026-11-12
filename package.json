@@ -1,0 +1,9 @@
+{
+  "name": "igfollowertracking-v2",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Instagram Follower Tracker — web app statica su Firebase Hosting con account facoltativo",
+  "scripts": {
+    "test": "node --test tests/analysis-core.test.cjs"
+  }
+}

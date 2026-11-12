@@ -35,6 +35,7 @@
   <link rel="stylesheet" href="css/06-results.css">
   <link rel="stylesheet" href="css/07-ui-utilities.css">
   <link rel="stylesheet" href="css/08-responsive.css">
+  <link rel="stylesheet" href="css/09-auth.css">
   <link rel="stylesheet" href="css/general.css">
 
   <!-- Google AdSense -->
@@ -293,6 +294,7 @@
             <h1 itemprop="headline" class="ig-gradient">Instagram Follower Tracker</h1>
             <p class="subtitle">Analizza i tuoi follower e scopri chi non ti segue più - completamente sicuro e privato</p>
           </div>
+          <div id="igftAccount" class="igft-account"></div>
         </header>
 
         <!-- TRUST BADGES -->
@@ -304,11 +306,17 @@
             <span style="color:#28a745;">✓</span> Nessun accesso al tuo account
           </div>
           <div class="trust-badge">
-            <span style="color:#28a745;">✓</span> Dati non salvati sui server
+            <span style="color:#28a745;">✓</span> Dati sul cloud solo se accedi
           </div>
           <div class="trust-badge">
             <span style="color:#28a745;">✓</span> Analisi immediata
           </div>
+        </div>
+
+        <div style="background: #f5f7ff; border: 1px solid #dbe2ff; border-radius: 10px; padding: 12px 15px; margin-bottom: 20px; color: #3730a3; font-size: 0.92em; line-height: 1.5;">
+          <strong>Account facoltativo.</strong> Puoi usare l'app come ospite, senza registrarti.
+          <button type="button" class="igft-inline-link" data-igft-open-auth>Accedi o registrati</button>
+          per salvare lo storico delle analisi e ritrovare i profili disattivati anche su altri dispositivi.
         </div>
 
         <!-- GUIDA ESPANDIBILE -->
@@ -413,8 +421,9 @@
               <p>Sì, assolutamente. Il nostro sistema è progettato per la massima privacy:</p>
               <ul style="margin: 10px 0; padding-left: 20px;">
                 <li><strong>Nessun accesso al tuo account Instagram</strong> - non chiediamo mai password o accesso</li>
-                <li><strong>Elaborazione 100% offline</strong> - tutto avviene nel tuo browser, nessun dato inviato ai server</li>
-                <li><strong>Dati non salvati</strong> - i tuoi file non vengono memorizzati da nessuna parte</li>
+                <li><strong>Elaborazione nel browser</strong> - l'analisi del file avviene sul tuo dispositivo</li>
+                <li><strong>Nessun file salvato</strong> - il file ZIP non viene mai caricato sui server</li>
+                <li><strong>Account facoltativo</strong> - senza accesso non salviamo nulla sui server; con un account salviamo solo il report (username) e i profili disattivati, come descritto nell'informativa privacy</li>
                 <li><strong>Nessun tracciamento</strong> - non usiamo cookie di profilazione o sistemi di tracciamento</li>
               </ul>
             </div>
@@ -425,7 +434,7 @@
               <p>Il servizio è <strong>completamente gratuito</strong> senza limitazioni:</p>
               <ul style="margin: 10px 0; padding-left: 20px;">
                 <li>Nessun costo nascosto, nessun abbonamento</li>
-                <li>Nessuna registrazione richiesta</li>
+                <li>Registrazione facoltativa: puoi usarlo subito come ospite</li>
                 <li>Puoi analizzare file di qualsiasi dimensione</li>
                 <li>Numero illimitato di analisi</li>
                 <li>Manteniamo il servizio tramite pubblicità non invasiva</li>
@@ -478,6 +487,7 @@
             <a href="privacy-policy.html" aria-label="Leggi l'informativa sulla privacy">Informativa Privacy</a>
             <a href="terms-of-service.html" aria-label="Leggi i termini di servizio">Termini di Servizio</a>
             <a href="contact.html" aria-label="Contattaci per supporto">Contatti e Supporto</a>
+            <button type="button" class="igft-inline-link" data-igft-open-account>Area personale</button>
           </div>
           <p style="margin: 15px 0 0 0; font-size: 0.85em; color: #999;">
             Questo strumento non è affiliato, associato, autorizzato, sostenuto o in alcun modo connesso con Instagram o Meta Platforms.<br>
@@ -488,7 +498,15 @@
     </div>
   </div>
 
-  <script src="scripts/app.js" defer></script>
+  <!-- Firebase SDK (compat) + moduli applicativi. L'ordine è significativo. -->
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script defer src="scripts/lib/analysis-core.js"></script>
+  <script defer src="scripts/firebase-init.js"></script>
+  <script defer src="scripts/store.js"></script>
+  <script defer src="scripts/auth-ui.js"></script>
+  <script defer src="scripts/app.js"></script>
   
   <script>
     // Funzione per espandere/contraire le sezioni

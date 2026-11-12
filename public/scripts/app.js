@@ -21,9 +21,24 @@ document.addEventListener('DOMContentLoaded', function() {
   let verificationSkipped = false;        // flag se la verifica è stata saltata (volontariamente o per errore)
   let verificationFailed = false;          // flag se la verifica è fallita del tutto
   let verifiedList = [];                   // lista dopo verifica
+  let currentPage = 1;
+  let currentRemovedDeactivatedCount = 0;  // profili esclusi perché marcati come disattivati
+  let currentSaveNote = null;              // { text, kind } nota di salvataggio dell'analisi
+  let analysisSeq = 0;                     // evita di aggiornare la UI con esiti di analisi precedenti
+
+  function storeStatus() {
+    return window.IGFTStore ? window.IGFTStore.getStatus() : { autoSave: false };
+  }
+
+  function notifyUser(message, kind) {
+    if (window.IGFTUI && window.IGFTUI.toast) {
+      window.IGFTUI.toast(message, kind);
+    }
+  }
 
   // ========== FUNZIONI DI ESTRAZIONE (invariate) ==========
   function cleanInstagramUsername(username) {
+    if (window.IGFTCore) return window.IGFTCore.normalizeUsername(username);
     if (!username || typeof username !== 'string') return null;
     const cleanUsername = username.trim().toLowerCase();
     if (cleanUsername.length < CONFIG.MIN_USERNAME_LENGTH || 
@@ -239,6 +254,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   };
 
+  // ========== SALVATAGGIO ANALISI (storico) ==========
+  async function saveAnalysisInBackground(seq, report) {
+    const Store = window.IGFTStore;
+    if (!Store || !storeStatus().autoSave) return;
+
+    try {
+      const saved = await Store.saveAnalysis(report);
+      if (seq !== analysisSeq) return;
+
+      if (!saved) {
+        currentSaveNote = { text: 'Salvataggio dell\'analisi non riuscito.', kind: 'error' };
+      } else {
+        currentSaveNote = {
+          text: saved.storage === 'cloud'
+            ? 'Analisi salvata nel tuo account.'
+            : 'Analisi salvata solo su questo dispositivo.',
+          kind: 'success'
+        };
+      }
+    } catch (error) {
+      if (seq !== analysisSeq) return;
+      currentSaveNote = {
+        text: 'Salvataggio dell\'analisi non riuscito: ' + (error.message || 'errore sconosciuto'),
+        kind: 'error'
+      };
+    }
+
+    if (seq === analysisSeq) displayResults(currentPage);
+  }
+
   // ========== GESTIONE ZIP (modificata per non fare verifica automatica) ==========
   async function processZipFile(file) {
     if (isProcessing) return;
@@ -307,16 +352,43 @@ document.addEventListener('DOMContentLoaded', function() {
       const followersSet = new Set(followersArray);
       let notFollowingBack = followingUsernames.filter(u => !followersSet.has(u));
 
+      // Applica la memoria dei profili disattivati (locale o Firestore).
+      let removedDeactivated = [];
+      if (window.IGFTStore) {
+        try {
+          await window.IGFTStore.ready;
+          const filterResult = window.IGFTCore.filterDeactivated(
+            notFollowingBack,
+            window.IGFTStore.getDeactivatedUsernames()
+          );
+          notFollowingBack = filterResult.kept;
+          removedDeactivated = filterResult.removed;
+        } catch (error) {
+          console.warn('Filtro profili disattivati non disponibile:', error);
+        }
+      }
+
       // NON eseguiamo verifica automatica, lasciamo all'utente la scelta
+      const seq = ++analysisSeq;
       currentNotFollowingBack = notFollowingBack;
       currentFollowingCount = followingUsernames.length;
       currentFollowersCount = followersArray.length;
+      currentRemovedDeactivatedCount = removedDeactivated.length;
+      currentPage = 1;
+      currentSaveNote = null;
       
       // Mostra risultati con pagina 1 (senza verifica)
       displayResults(1);
       
       statusPill.textContent = '✅ Completo';
       statusPill.className = 'pill success';
+
+      saveAnalysisInBackground(seq, {
+        followingCount: currentFollowingCount,
+        followersCount: currentFollowersCount,
+        notFollowing: currentNotFollowingBack.slice(),
+        removedDeactivatedCount: currentRemovedDeactivatedCount
+      });
       
     } catch (error) {
       console.error('Errore:', error);
@@ -346,6 +418,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const notFollowingBack = currentNotFollowingBack;
     const followingCount = currentFollowingCount;
     const followersCount = currentFollowersCount;
+
+    currentPage = page;
 
     const totalItems = notFollowingBack.length;
     const itemsPerPage = CONFIG.ITEMS_PER_PAGE;
@@ -387,8 +461,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
 
-    const listItems = usersToShow.map((username, index) => `
-      <li style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+    const listItems = usersToShow.map((username) => {
+      const marked = window.IGFTStore ? window.IGFTStore.isDeactivated(username) : false;
+      return `
+      <li style="padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
           <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #f0f0f0; 
                       display: flex; align-items: center; justify-content: center; font-weight: bold;">
@@ -397,19 +473,39 @@ document.addEventListener('DOMContentLoaded', function() {
           <div style="min-width: 0; flex: 1;">
             <div style="font-weight: 600; color: #262626; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
               @${username}
+              ${marked ? '<span style="font-size:0.7em; font-weight:600; color:#6b7280; background:#e5e7eb; border-radius:10px; padding:1px 7px; margin-left:6px; vertical-align:middle;">disattivato</span>' : ''}
             </div>
             <div style="color: #8e8e8e; text-decoration: none; font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
               instagram.com/${username}
             </div>
           </div>
         </div>
-        <button onclick="window.open('https://instagram.com/${username}', '_blank')" 
-                style="flex-shrink: 0; padding: 6px 15px; background: #0095f6; color: white; border: none; 
-                       border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 500;">
-          Vedi
-        </button>
+        <div style="display:flex; gap:8px; flex-shrink:0;">
+          <button onclick="window.IGFTToggleDeactivated('${username}')"
+                  title="${marked ? 'Rimuovi dalla memoria dei disattivati' : 'Ricorda questo profilo e rimuovilo dalle prossime analisi'}"
+                  style="padding: 6px 12px; background: ${marked ? '#6b7280' : '#ffffff'}; color: ${marked ? '#ffffff' : '#4b5563'}; border: 1px solid ${marked ? '#6b7280' : '#d1d5db'};
+                         border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 500;">
+            ${marked ? 'Ripristina' : 'Disattivato'}
+          </button>
+          <button onclick="window.open('https://instagram.com/${username}', '_blank')"
+                  style="padding: 6px 15px; background: #0095f6; color: white; border: none;
+                         border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 500;">
+            Vedi
+          </button>
+        </div>
       </li>
-    `).join('');
+    `;
+    }).join('');
+
+    const saveNoteHtml = currentSaveNote
+      ? `<div class="igft-save-note igft-save-note--${currentSaveNote.kind}">${window.IGFTCore.escapeHtml(currentSaveNote.text)}</div>`
+      : '';
+
+    const removedNoteHtml = currentRemovedDeactivatedCount > 0
+      ? `<div style="background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 12px; margin-bottom: 20px; color: #3730a3;">
+           ♻️ <strong>${currentRemovedDeactivatedCount}</strong> ${currentRemovedDeactivatedCount === 1 ? 'profilo disattivato è stato escluso' : 'profili disattivati sono stati esclusi'} automaticamente da questa analisi.
+         </div>`
+      : '';
 
     const paginationControls = totalPages > 1 ? `
       <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin: 20px 0 10px;">
@@ -433,6 +529,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     results.innerHTML = `
       <div style="max-width: 800px; margin: 0 auto;">
+        ${saveNoteHtml}
+        ${removedNoteHtml}
         <!-- NOTA INFORMATIVA (invariata) -->
         <div style="background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
           <div style="display: flex; align-items: flex-start; gap: 15px;">
@@ -551,6 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
             • I dati sono estratti direttamente dal file di esportazione di Instagram<br>
             • La verifica online degli account è disponibile su richiesta (pulsante) ma può essere lenta e non garantita al 100% a causa di blocchi di Instagram<br>
             • Gli account verificati come inesistenti vengono rimossi dalla lista<br>
+            • I profili marcati "Disattivato" restano in memoria e vengono esclusi automaticamente dalle analisi successive<br>
             • Per risultati ottimali, si consiglia di scaricare un file di esportazione aggiornato
           </div>
         </div>
@@ -566,6 +665,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
   window.updateResultsPage = function(page) {
     displayResults(page);
+  };
+
+  // Marca/ripristina un profilo come disattivato dopo l'analisi.
+  window.IGFTToggleDeactivated = async function(username) {
+    if (!window.IGFTStore) return;
+    try {
+      const wasMarked = window.IGFTStore.isDeactivated(username);
+      const result = await window.IGFTStore.toggleDeactivated(username);
+      if (result && result.synced === false) {
+        notifyUser('Salvato solo su questo dispositivo: sincronizzazione non disponibile.', 'error');
+      } else {
+        notifyUser(
+          wasMarked
+            ? '@' + username + ' ripristinato.'
+            : '@' + username + ' marcato come disattivato: sarà escluso dalle prossime analisi.',
+          'success'
+        );
+      }
+    } catch (error) {
+      notifyUser('Operazione non riuscita: ' + (error.message || 'errore sconosciuto'), 'error');
+    }
   };
 
   // ========== INIZIALIZZAZIONE (invariata) ==========
@@ -661,6 +781,10 @@ document.addEventListener('DOMContentLoaded', function() {
         currentFollowersCount = 0;
         verificationSkipped = false;
         verificationFailed = false;
+        currentPage = 1;
+        currentRemovedDeactivatedCount = 0;
+        currentSaveNote = null;
+        analysisSeq++;
         if (zipInput) {
           zipInput.value = '';
           zipInput.disabled = false;
@@ -678,6 +802,14 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         `;
+      });
+    }
+
+    if (window.IGFTStore) {
+      window.IGFTStore.onChange(function () {
+        if (!isProcessing && currentFollowingCount > 0) {
+          displayResults(currentPage);
+        }
       });
     }
     
