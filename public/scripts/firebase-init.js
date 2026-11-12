@@ -82,7 +82,10 @@
         ? window.firebase.app()
         : window.firebase.initializeApp(config);
       state.auth = window.firebase.auth();
-      state.db = window.firebase.firestore();
+      // La pagina di login carica solo Auth: Firestore è opzionale.
+      if (typeof window.firebase.firestore === 'function') {
+        state.db = window.firebase.firestore();
+      }
       state.available = true;
     } catch (error) {
       state.error = error && error.message ? error.message : String(error);
