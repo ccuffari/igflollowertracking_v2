@@ -4,42 +4,34 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script src="scripts/lib/extension-noise.js?v=2.7.1"></script>
+    <script src="scripts/extension-guard.js?v=2.7.1"></script>
     <title>Privacy Policy - Instagram Follower Tracker</title>
     <meta name="description" content="Informativa privacy. Titolare: persona fisica. Trattamento dati ai sensi GDPR.">
-    <link rel="stylesheet" href="general.css">
-    <style>
-        .legal-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        .section {
-            margin-bottom: 22px;
-            border-bottom: 1px solid #e6e6e6;
-            padding-bottom: 18px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 12px;
-        }
-
-        th,
-        td {
-            padding: 10px;
-            border: 1px solid #eee;
-            text-align: left;
-        }
-    </style>
+    <link rel="stylesheet" href="css/00-variables.css?v=2.7.1">
+    <link rel="stylesheet" href="css/01-base.css?v=2.7.1">
+    <link rel="stylesheet" href="css/02-layout.css?v=2.7.1">
+    <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.1">
+    <link rel="stylesheet" href="css/04-components.css?v=2.7.1">
+    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.1">
+    <link rel="stylesheet" href="css/general.css?v=2.7.1">
+    <link rel="stylesheet" href="css/10-theme.css?v=2.7.1">
+    <link rel="stylesheet" href="css/12-legal.css?v=2.7.1">
 </head>
 
 <body>
-    <main class="legal-content" role="main" aria-labelledby="pp">
+    <div class="app">
+        <div class="container legal-page">
+            <div class="panel">
+                <header class="legal-header">
+                    <a class="legal-brand" href="index.html"><span class="logo" aria-hidden="true">IG</span>
+                        <span>Instagram Follower Tracker</span></a>
+                    <a class="legal-back" href="index.html">&larr; Torna all'app</a>
+                </header>
+                <main class="legal-content" role="main" aria-labelledby="pp">
         <header id="pp">
             <h1>Informativa Privacy</h1>
-            <p class="muted"><strong>Ultimo aggiornamento:</strong> 10 ottobre 2025</p>
+            <p class="muted"><strong>Ultimo aggiornamento:</strong> 12 novembre 2026</p>
         </header>
 
         <section class="section">
@@ -56,6 +48,13 @@
             <p><strong>Dati tecnici e di utilizzo (anonimizzati)</strong>: dati di navigazione aggregati e anonimizzati
                 per statistiche. Non vengono raccolti file Instagram o credenziali sui server dell'operatore salvo
                 indicazione esplicita e visibile.</p>
+            <p><strong>Dati account (facoltativi)</strong>: se scegli di accedere, trattiamo l'indirizzo email e i dati
+                necessari all'autenticazione tramite Firebase Authentication. Se il salvataggio automatico è attivo,
+                memorizziamo inoltre l'esito delle analisi (elenco degli username "non ti seguono", conteggi e data) e
+                l'elenco dei profili marcati come disattivati. Il file ZIP esportato da Instagram non viene mai caricato
+                sui server.</p>
+            <p><strong>Uso senza account</strong>: in modalità ospite nessun dato viene inviato ai server; profili
+                disattivati e storico restano nella memoria locale del browser.</p>
         </section>
 
         <section class="section">
@@ -64,6 +63,8 @@
                 <li>Rispondere a richieste di supporto e gestione contatti (base: esecuzione di misure precontrattuali /
                     legittimo interesse).</li>
                 <li>Statistiche anonime per miglioramento servizio (base: legittimo interesse).</li>
+                <li>Creazione e gestione dell'area personale facoltativa, sincronizzazione di analisi e profili
+                    disattivati (base: esecuzione del servizio richiesto dall'utente).</li>
                 <li>Adempimenti fiscali e amministrativi (base: obbligo legale).</li>
             </ul>
         </section>
@@ -87,6 +88,14 @@
                         <td>24 mesi</td>
                     </tr>
                     <tr>
+                        <td>Dati account (email, autenticazione)</td>
+                        <td>Fino alla cancellazione dell'account</td>
+                    </tr>
+                    <tr>
+                        <td>Analisi salvate e profili disattivati</td>
+                        <td>Fino alla cancellazione da parte dell'utente (singola analisi o account)</td>
+                    </tr>
+                    <tr>
                         <td>Dati fiscali/amministrativi</td>
                         <td>10 anni (obbligo legale)</td>
                     </tr>
@@ -95,7 +104,48 @@
         </section>
 
         <section class="section">
-            <h2>5. Diritti dell'interessato</h2>
+            <h2>5. Account facoltativo e dati salvati</h2>
+            <p>L'accesso è facoltativo: l'app resta pienamente utilizzabile come ospite, senza registrazione. Se crei
+                un account vengono trattati i seguenti dati:</p>
+            <ul>
+                <li><strong>Email e autenticazione</strong>: gestite tramite Firebase Authentication (Google). La
+                    password non è mai visibile al titolare del trattamento.</li>
+                <li><strong>Profilo e nome utente</strong>: email e nome visualizzato (display name) salvati in
+                    Cloud Firestore per identificare il titolare dei dati.</li>
+                <li><strong>Report delle analisi</strong>: data e contenuto del report (conteggi ed elenco degli
+                    username), <em>cifrati nel browser</em> prima del salvataggio.</li>
+                <li><strong>Profili disattivati</strong>: username e data di marcatura, anch'essi <em>cifrati</em>.
+                    Questi profili vengono esclusi automaticamente dalle analisi successive.</li>
+                <li><strong>Impostazioni</strong>: preferenza sul salvataggio automatico delle analisi.</li>
+            </ul>
+            <p><strong>Cifratura automatica dei contenuti.</strong> Il contenuto delle analisi e l'elenco dei
+                profili disattivati vengono cifrati sul dispositivo con AES-GCM usando una chiave casuale per
+                utente. Per gli account email/password la chiave è protetta dalla <em>password dell'account</em>:
+                viene derivata nel browser (PBKDF2) e la password non viene mai trasmessa ai server né salvata in
+                chiaro (zero-knowledge). Per gli account creati con Google, che non forniscono una password, la
+                chiave è gestita automaticamente dall'app e conservata insieme al record cifrato: i dati nel
+                database restano cifrati e non vengono mai salvati in chiaro, ma questa modalità non è
+                zero-knowledge in senso stretto. In nessun caso è richiesta all'utente un'attivazione manuale.
+                Nel database restano visibili solo l'email/nome del profilo, il record della chiave cifrata e i
+                metadati minimi necessari all'ordinamento (data dell'analisi e identificativi dei documenti).</p>
+            <p>Per gli account email/password, se la password viene dimenticata i dati cifrati non possono essere
+                decifrati da nessuno, nemmeno dall'assistenza: la reimpostazione della password via email consente
+                di rientrare nell'account ma non recupera i dati cifrati con la vecchia password.</p>
+            <p>I dati sono memorizzati nel database Cloud Firestore predefinito del progetto Firebase, nella regione
+                scelta alla creazione del database, e sono accessibili solo all'utente autenticato tramite regole di
+                sicurezza. Firestore è la fonte di verità: analisi e profili disattivati vengono salvati e riletti dal
+                database a ogni accesso. Il fornitore agisce come responsabile del trattamento ai sensi dell'art. 28
+                GDPR. Sul dispositivo resta inoltre una copia locale di cache (storico e profili disattivati), separata
+                per utente, per consentire la consultazione immediata e l'uso senza rete; le modifiche fatte offline
+                vengono inviate a Firestore appena la connessione torna disponibile. La copia locale viene rimossa con
+                "Elimina account e dati" o eliminando la singola analisi.</p>
+            <p>Dall'area personale puoi eliminare singole analisi, tutti i dati o l'intero account: la cancellazione è
+                immediata e irreversibile. Puoi inoltre disattivare in qualsiasi momento il salvataggio automatico e
+                continuare a usare l'app come ospite.</p>
+        </section>
+
+        <section class="section">
+            <h2>6. Diritti dell'interessato</h2>
             <p>Ai sensi degli artt.15-22 GDPR hai il diritto di chiedere:</p>
             <ul>
                 <li>Accesso, rettifica, cancellazione</li>
@@ -109,30 +159,31 @@
         </section>
 
         <section class="section">
-            <h2>6. DPO e responsabilità</h2>
+            <h2>7. DPO e responsabilità</h2>
             <p>Non è stato nominato un Data Protection Officer (DPO). La nomina è richiesta solo in casi specifici
                 previsti dall'Art.37 GDPR; al momento il trattamento svolto non rientra nelle categorie che impongono
                 obbligo di DPO.</p>
         </section>
 
         <section class="section">
-            <h2>7. Comunicazione a terzi e trasferimenti</h2>
+            <h2>8. Comunicazione a terzi e trasferimenti</h2>
             <p>I dati non saranno ceduti a terzi per finalità di marketing. Possono essere comunicati a fornitori
                 tecnici che agiscono come responsabili del trattamento per finalità strumentali (hosting, backup,
-                servizi email) e sempre con garanzie contrattuali.</p>
-            <p>Eventuali trasferimenti extra-UE saranno gestiti con adeguate garanzie (Decisione di adeguatezza o
-                Clausole Contrattuali Standard).</p>
+                servizi email, autenticazione e database cloud) e sempre con garanzie contrattuali.</p>
+            <p>Per l'area personale facoltativa ci avvaliamo di Google Firebase / Google Cloud (Firebase
+                Authentication e Cloud Firestore). Eventuali trasferimenti extra-UE sono gestiti con adeguate garanzie
+                (Decisione di adeguatezza o Clausole Contrattuali Standard).</p>
         </section>
 
         <section class="section">
-            <h2>8. Cookie</h2>
+            <h2>9. Cookie</h2>
             <p>Il sito utilizza cookie tecnici essenziali e cookie di preferenze. Cookie di terze parti (es. Google
                 AdSense) richiedono il consenso gestito dalla piattaforma corrispondente. Consulta la Cookie Policy per
                 dettagli e modalità di revoca del consenso.</p>
         </section>
 
         <section class="section">
-            <h2>9. Reclami</h2>
+            <h2>10. Reclami</h2>
             <p>Se ritieni violati i tuoi diritti puoi inviare reclamo al titolare oppure all'Autorità Garante:</p>
             <p><strong>Garante per la protezione dei dati personali</strong><br>
                 Piazza di Monte Citorio, 121 — 00186 ROMA<br>
@@ -144,7 +195,10 @@
             <small>Questa informativa è una base generica. Per trattamenti complessi o per servizi a pagamento si
                 consiglia consulenza legale specializzata GDPR.</small>
         </footer>
-    </main>
+                </main>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

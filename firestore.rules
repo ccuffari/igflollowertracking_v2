@@ -1,0 +1,104 @@
+rules_version = '2';
+
+// Firestore rules for Instagram Follower Tracker.
+//
+// Each authenticated user can read and write only their own data.
+//
+// Encrypted at rest: analysis data and deactivated profiles are encrypted in
+// the browser before being written. The server only sees opaque ciphertext.
+//   users/{uid}                          -> profile (email, displayName),
+//                                           settings and the *wrapped* key
+//                                           record (keyVault). For email/password
+//                                           accounts the key is derived from the
+//                                           account password (zero-knowledge); for
+//                                           Google accounts the record also holds
+//                                           the app-managed `autoSecret` so the
+//                                           vault opens automatically.
+//   users/{uid}/deactivated/{docId}      -> { enc } with docId = HMAC(username)
+//   users/{uid}/analyses/{id}            -> { createdAt, enc }
+//   users/{uid}/analyses/{id}/items/*    -> { enc }
+//
+// Plaintext metadata is limited to what is needed to order/limit documents:
+// the createdAt timestamp and the document IDs.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isCiphertext(value) {
+      return value is string && value.size() > 0 && value.size() <= 1000000;
+    }
+
+    function validKeyVault(vault) {
+      return vault is map
+        && vault.keys().hasOnly(['v', 'kdf', 'iterations', 'salt', 'iv', 'wrappedKey', 'autoSecret'])
+        && vault.v == 1
+        && vault.kdf == 'PBKDF2-SHA256'
+        && vault.iterations is int
+        && vault.iterations >= 100000
+        && vault.iterations <= 1000000
+        && vault.salt is string
+        && vault.salt.size() > 0
+        && vault.salt.size() <= 256
+        && vault.iv is string
+        && vault.iv.size() > 0
+        && vault.iv.size() <= 256
+        && vault.wrappedKey is string
+        && vault.wrappedKey.size() > 0
+        && vault.wrappedKey.size() <= 1024
+        && (!('autoSecret' in vault)
+          || (vault.autoSecret is string
+            && vault.autoSecret.size() >= 16
+            && vault.autoSecret.size() <= 512));
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'settings', 'keyVault', 'createdAt', 'updatedAt'
+        ])
+        && (!('email' in request.resource.data) || request.resource.data.email is string)
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+        && (!('settings' in request.resource.data)
+          || (request.resource.data.settings.keys().hasOnly(['autoSave'])
+            && request.resource.data.settings.autoSave is bool))
+        && (!('keyVault' in request.resource.data) || validKeyVault(request.resource.data.keyVault))
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
+        && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+      // Deactivated profiles are stored with an opaque HMAC document ID and a
+      // single encrypted payload: the database cannot read the username.
+      match /deactivated/{docId} {
+        allow read, delete: if isOwner(uid);
+
+        allow create, update: if isOwner(uid)
+          && docId.matches('^[0-9a-f]{64}$')
+          && request.resource.data.keys().hasOnly(['enc'])
+          && isCiphertext(request.resource.data.enc);
+      }
+
+      // Analysis metadata is encrypted; only createdAt stays readable so the
+      // history can be ordered without decrypting every document.
+      match /analyses/{analysisId} {
+        allow read, delete: if isOwner(uid);
+
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['createdAt', 'enc'])
+          && request.resource.data.createdAt is timestamp
+          && isCiphertext(request.resource.data.enc);
+
+        match /items/{chunkId} {
+          allow read, delete: if isOwner(uid);
+
+          allow create, update: if isOwner(uid)
+            && request.resource.data.keys().hasOnly(['enc'])
+            && isCiphertext(request.resource.data.enc);
+        }
+      }
+    }
+  }
+}

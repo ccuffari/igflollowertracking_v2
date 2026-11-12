@@ -22,7 +22,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    background: #fcfcfc;
+    background: var(--surface-alt);
     transition: all .2s ease;
     overflow: hidden;
 }
@@ -35,8 +35,8 @@
 .drop-zone.drag-over,
 .drop.drag-over {
     border-color: var(--ig-grad-start);
-    background: #f0f4ff;
-    outline: 3px dashed rgba(64, 93, 230, 0.18);
+    background: rgba(225, 48, 108, .08);
+    outline: 3px dashed rgba(225, 48, 108, .22);
 }
 
 .controls,
@@ -214,14 +214,14 @@
     justify-content: space-between;
     border-radius: 8px;
     border: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     flex-wrap: wrap;
     transition: background .15s;
 }
 
 .user-item:hover,
 .result-row:hover {
-    background: #f0f4ff;
+    background: rgba(225, 48, 108, .08);
 }
 
 .result-left,

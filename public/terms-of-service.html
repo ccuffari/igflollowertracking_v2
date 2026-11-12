@@ -4,32 +4,32 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script src="scripts/lib/extension-noise.js?v=2.7.1"></script>
+    <script src="scripts/extension-guard.js?v=2.7.1"></script>
     <title>Termini di Servizio - Instagram Follower Tracker</title>
     <meta name="description"
         content="Condizioni d'uso per Instagram Follower Tracker. Servizio fornito da persona fisica.">
-    <link rel="stylesheet" href="general.css">
-    <style>
-        .legal-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        .section {
-            margin-bottom: 24px;
-            border-bottom: 1px solid #e6e6e6;
-            padding-bottom: 18px;
-        }
-
-        .muted {
-            color: #666;
-            font-size: 0.95rem;
-        }
-    </style>
+    <link rel="stylesheet" href="css/00-variables.css?v=2.7.1">
+    <link rel="stylesheet" href="css/01-base.css?v=2.7.1">
+    <link rel="stylesheet" href="css/02-layout.css?v=2.7.1">
+    <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.1">
+    <link rel="stylesheet" href="css/04-components.css?v=2.7.1">
+    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.1">
+    <link rel="stylesheet" href="css/general.css?v=2.7.1">
+    <link rel="stylesheet" href="css/10-theme.css?v=2.7.1">
+    <link rel="stylesheet" href="css/12-legal.css?v=2.7.1">
 </head>
 
 <body>
-    <main class="legal-content" role="main" aria-labelledby="title">
+    <div class="app">
+        <div class="container legal-page">
+            <div class="panel">
+                <header class="legal-header">
+                    <a class="legal-brand" href="index.html"><span class="logo" aria-hidden="true">IG</span>
+                        <span>Instagram Follower Tracker</span></a>
+                    <a class="legal-back" href="index.html">&larr; Torna all'app</a>
+                </header>
+                <main class="legal-content" role="main" aria-labelledby="title">
         <header id="title">
             <h1>Termini di Servizio</h1>
             <p class="muted"><strong>Ultimo aggiornamento:</strong> 10 ottobre 2025</p>
@@ -67,9 +67,12 @@
 
         <section class="section">
             <h2>5. Uso dei dati e limitazioni</h2>
-            <p>Il Servizio non richiede credenziali Instagram né memorizza i dati Instagram dell'utente sui server
-                dell'operatore, salvo scientifica indicazione contraria riportata nella Privacy Policy. L'utente è
-                responsabile della liceità e dei diritti sui dati che elabora tramite il Servizio.</p>
+            <p>Il Servizio non richiede credenziali Instagram. Il file ZIP esportato da Instagram viene elaborato
+                nel browser e non viene caricato sui server dell'operatore. L'accesso con account è facoltativo:
+                se l'utente accede e il salvataggio automatico è attivo, vengono memorizzati sui server
+                esclusivamente l'esito dell'analisi (username, conteggi e data) e l'elenco dei profili marcati come
+                disattivati, secondo quanto descritto nella Privacy Policy. L'utente è responsabile della liceità e
+                dei diritti sui dati che elabora tramite il Servizio.</p>
         </section>
 
         <section class="section">
@@ -95,7 +98,10 @@
             <small>Versione minima per uso come persona fisica. Per contratti commerciali o servizi a pagamento valutare
                 integrazione con consulenza legale specialistica.</small>
         </footer>
-    </main>
+                </main>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

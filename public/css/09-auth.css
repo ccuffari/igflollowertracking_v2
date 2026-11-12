@@ -1,0 +1,773 @@
+/* 09-auth.css — account, modali, libreria analisi e profili disattivati */
+
+/* ---------------- HEADER ACCOUNT ---------------- */
+.igft-account {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.igft-account-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 240px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: .875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.igft-account-btn:hover {
+    border-color: var(--ig-grad-mid);
+    box-shadow: 0 2px 8px rgba(131, 58, 180, .12);
+}
+
+.igft-account-btn--user {
+    background: var(--surface-alt);
+}
+
+.igft-account-mail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.igft-account-link {
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: .8rem;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.igft-avatar {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(45deg, var(--ig-grad-start), var(--ig-grad-mid), var(--ig-grad-end));
+    color: #fff;
+    font-size: .8rem;
+    font-weight: 700;
+}
+
+.igft-avatar--lg {
+    width: 46px;
+    height: 46px;
+    font-size: 1.1rem;
+}
+
+/* ---------------- LINK / BOTTONI TESTO ---------------- */
+.igft-inline-link,
+.igft-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--primary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+
+.igft-inline-link {
+    text-decoration: underline;
+}
+
+.igft-link:hover,
+.igft-inline-link:hover {
+    color: var(--ig-grad-mid);
+}
+
+.igft-danger-link {
+    color: var(--error);
+    font-weight: 500;
+}
+
+.igft-danger-link:hover {
+    color: #ff9db0;
+}
+
+.footer-links .igft-inline-link {
+    color: var(--muted);
+    font-size: .9rem;
+    font-weight: 400;
+    text-decoration: none;
+}
+
+.footer-links .igft-inline-link:hover {
+    color: var(--primary);
+}
+
+/* ---------------- MODALE ---------------- */
+body.igft-modal-open {
+    overflow: hidden;
+}
+
+.igft-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.igft-modal[hidden] {
+    display: none;
+}
+
+.igft-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(17, 24, 39, .55);
+    backdrop-filter: blur(2px);
+}
+
+.igft-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 28px 26px 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .25);
+    animation: igft-modal-in .18s ease-out;
+}
+
+@keyframes igft-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.igft-modal__close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--surface-alt);
+    color: var(--muted);
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.igft-modal__close:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.igft-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    padding-right: 32px;
+    color: var(--text);
+}
+
+.igft-muted {
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+/* ---------------- FORM ---------------- */
+.igft-tabs {
+    display: flex;
+    gap: 6px;
+    background: var(--surface-alt);
+    border-radius: 10px;
+    padding: 4px;
+    margin: 16px 0 18px;
+}
+
+.igft-tab {
+    flex: 1;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: .9rem;
+    cursor: pointer;
+}
+
+.igft-tab.is-active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+}
+
+.igft-field {
+    display: block;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+}
+
+.igft-field input {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font: inherit;
+    font-weight: 400;
+    color: var(--text);
+    background: var(--surface);
+}
+
+.igft-field input:focus {
+    outline: 2px solid rgba(225, 48, 108, .4);
+    border-color: var(--primary);
+}
+
+.btn.igft-primary {
+    width: 100%;
+    padding: 12px 16px;
+    background: linear-gradient(90deg, var(--ig-grad-start), var(--ig-grad-mid), var(--ig-grad-end));
+}
+
+.btn.igft-danger {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+    color: #fff;
+    padding: 10px 16px;
+}
+
+.btn.igft-small {
+    padding: 7px 14px;
+    font-size: .82rem;
+}
+
+.igft-separator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: .8rem;
+    margin: 18px 0;
+}
+
+.igft-separator::before,
+.igft-separator::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.btn.igft-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 11px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.igft-google__mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: conic-gradient(#4285f4 0 25%, #34a853 0 50%, #fbbc05 0 75%, #ea4335 0 100%);
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 800;
+}
+
+.igft-auth-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 18px;
+    font-size: .85rem;
+}
+
+/* ---------------- ALERT ---------------- */
+.igft-alert {
+    border-radius: 9px;
+    padding: 11px 13px;
+    font-size: .87rem;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.igft-alert strong {
+    font-weight: 700;
+}
+
+.igft-alert--info {
+    background: rgba(193, 53, 132, .12);
+    border: 1px solid rgba(193, 53, 132, .32);
+    color: #f0b3d6;
+}
+
+.igft-alert--warning {
+    background: rgba(247, 119, 55, .12);
+    border: 1px solid rgba(247, 119, 55, .32);
+    color: #ffc9a3;
+}
+
+.igft-alert--error {
+    background: rgba(255, 92, 122, .12);
+    border: 1px solid rgba(255, 92, 122, .32);
+    color: #ff9db0;
+}
+
+.igft-alert .igft-link {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: .85rem;
+    text-decoration: underline;
+}
+
+/* ---------------- MENU ACCOUNT ---------------- */
+.igft-account-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: var(--surface-alt);
+    border-radius: 12px;
+    margin-bottom: 16px;
+}
+
+.igft-account-card__info {
+    min-width: 0;
+}
+
+.igft-account-card__name {
+    font-weight: 700;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.igft-account-card__mail {
+    font-weight: 600;
+    opacity: .85;
+    overflow-wrap: anywhere;
+}
+
+.igft-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.igft-menu__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 15px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: .92rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+
+.igft-menu__item:hover {
+    border-color: var(--ig-grad-mid);
+    background: var(--surface-alt);
+}
+
+.igft-badge {
+    min-width: 24px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: .78rem;
+    text-align: center;
+}
+
+.igft-switch {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: .87rem;
+    color: var(--text);
+    padding: 10px 0 4px;
+    cursor: pointer;
+}
+
+.igft-switch input {
+    margin-top: 3px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+
+.igft-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.igft-actions--split {
+    justify-content: space-between;
+}
+
+/* ---------------- LIBRERIA ---------------- */
+.igft-storage-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .8rem;
+    color: var(--muted);
+    margin-bottom: 12px;
+}
+
+.igft-storage-note--cloud {
+    color: #7fe3a8;
+}
+
+.igft-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warning);
+    flex-shrink: 0;
+}
+
+.igft-storage-note--cloud .igft-dot {
+    background: var(--success);
+}
+
+.igft-library {
+    margin-top: 4px;
+}
+
+.igft-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.igft-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.igft-row__main {
+    min-width: 0;
+    flex: 1;
+}
+
+.igft-row__title {
+    font-weight: 600;
+    font-size: .92rem;
+    overflow-wrap: anywhere;
+}
+
+.igft-row__meta {
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.igft-row__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.igft-list-note {
+    margin-top: 12px;
+    font-size: .78rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+.igft-empty {
+    text-align: center;
+    padding: 28px 16px;
+    color: var(--text);
+}
+
+.igft-empty__icon {
+    font-size: 2.4rem;
+    margin-bottom: 8px;
+}
+
+.igft-empty p {
+    margin-bottom: 6px;
+    font-size: .9rem;
+}
+
+.igft-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 14px 0 18px;
+}
+
+.igft-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 14px 8px;
+    border-radius: 10px;
+    background: var(--surface-alt);
+}
+
+.igft-stat__value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1.1;
+}
+
+.igft-stat--danger .igft-stat__value {
+    color: var(--error);
+}
+
+.igft-stat__label {
+    font-size: .78rem;
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.igft-profile-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    max-height: 46vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.igft-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: .87rem;
+}
+
+.igft-profile:last-child {
+    border-bottom: 0;
+}
+
+.igft-profile__avatar {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--surface-alt);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+    font-weight: 700;
+}
+
+.igft-profile__name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* ---------------- NOTA SALVATAGGIO ---------------- */
+.igft-save-note {
+    border-radius: 9px;
+    padding: 9px 13px;
+    font-size: .82rem;
+    margin-bottom: 14px;
+}
+
+.igft-save-note--success {
+    background: rgba(46, 204, 113, .12);
+    border: 1px solid rgba(46, 204, 113, .32);
+    color: #7fe3a8;
+}
+
+.igft-save-note--error {
+    background: rgba(255, 92, 122, .12);
+    border: 1px solid rgba(255, 92, 122, .32);
+    color: #ff9db0;
+}
+
+/* ---------------- TOAST ---------------- */
+.igft-toasts {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(92vw, 460px);
+    pointer-events: none;
+}
+
+.igft-toast {
+    padding: 11px 15px;
+    border-radius: 10px;
+    background: #121214;
+    color: #fff;
+    font-size: .87rem;
+    line-height: 1.45;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+    animation: igft-toast-in .2s ease-out;
+}
+
+.igft-toast--success {
+    background: #047857;
+}
+
+.igft-toast--error {
+    background: #b91c1c;
+}
+
+.igft-toast--out {
+    opacity: 0;
+    transition: opacity .2s ease;
+}
+
+@keyframes igft-toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+@media (max-width: 600px) {
+    .igft-modal {
+        padding: 10px;
+        align-items: flex-end;
+    }
+
+    .igft-modal__panel {
+        max-height: calc(100vh - 20px);
+        padding: 24px 18px 20px;
+        border-radius: 14px 14px 10px 10px;
+    }
+
+    .igft-account {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+    }
+
+    .igft-account-btn {
+        max-width: 100%;
+    }
+
+    .igft-stats {
+        gap: 6px;
+    }
+
+    .igft-stat__value {
+        font-size: 1.25rem;
+    }
+
+    .igft-actions--split {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .igft-actions--split .btn,
+    .igft-actions--split .igft-link {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+}
+
+/* ===================== CIFRATURA (ZERO-KNOWLEDGE) ===================== */
+
+.igft-vault {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(225, 48, 108, .10), rgba(193, 53, 132, .04));
+}
+
+.igft-vault__title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--ig-grad-start), var(--ig-grad-mid), var(--ig-grad-end));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.igft-vault .igft-muted {
+    margin: 0 0 10px;
+    font-size: .92rem;
+}
+
+.igft-vault .igft-alert {
+    margin-bottom: 10px;
+}
+
+.igft-vault .igft-actions {
+    margin-top: 8px;
+}

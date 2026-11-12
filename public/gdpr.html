@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="scripts/lib/extension-noise.js?v=2.7.1"></script>
+    <script src="scripts/extension-guard.js?v=2.7.1"></script>
     <title>GDPR - Instagram Follower Tracker</title>
     <meta name="description"
         content="Informazioni complete sul rispetto del GDPR (General Data Protection Regulation) da parte di Instagram Follower Tracker.">
@@ -12,48 +14,22 @@
     <meta name="robots" content="index, follow">
     <meta name="google-adsense-account" content="ca-pub-1948802026580753">
 
-    <link rel="stylesheet" href="general.css">
-    <link rel="stylesheet" href="footer.css">
-    <style>
-        .legal-content {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .legal-content section {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .rights-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .right-card {
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid var(--info);
-        }
-
-        .principle-list {
-            background: #f0f4ff;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-    </style>
+    <link rel="stylesheet" href="css/00-variables.css?v=2.7.1">
+    <link rel="stylesheet" href="css/01-base.css?v=2.7.1">
+    <link rel="stylesheet" href="css/02-layout.css?v=2.7.1">
+    <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.1">
+    <link rel="stylesheet" href="css/04-components.css?v=2.7.1">
+    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.1">
+    <link rel="stylesheet" href="css/general.css?v=2.7.1">
+    <link rel="stylesheet" href="css/10-theme.css?v=2.7.1">
+    <link rel="stylesheet" href="css/12-legal.css?v=2.7.1">
 </head>
 
 <body>
     <div class="app">
         <div class="container">
             <div class="panel">
-                <header style="text-align: center; margin-bottom: 30px;">
+                <header class="legal-page-header">
                     <h1>GDPR Compliance</h1>
                     <p class="subtitle">Regolamento Generale sulla Protezione dei Dati (UE) 2016/679</p>
                     <p class="small"><strong>Ultimo aggiornamento:</strong> 2024</p>
@@ -129,7 +105,12 @@
                         <h2>5. Misure di Sicurezza (Art. 32)</h2>
                         <p>Implementiamo misure tecniche e organizzative adeguate:</p>
                         <ul>
-                            <li>Pseudonimizzazione e cifratura dei dati</li>
+                            <li>Pseudonimizzazione e cifratura (AES-GCM) dei contenuti delle analisi e dei
+                                profili disattivati, attivata automaticamente. Per gli account email/password la
+                                chiave è derivata dalla password dell'utente nel browser e non è accessibile alla
+                                piattaforma (zero-knowledge). Per gli account Google, che non espongono una password,
+                                la chiave è gestita automaticamente dall'app: i dati restano cifrati nel database,
+                                senza alcuna attivazione manuale da parte dell'utente</li>
                             <li>Elaborazione esclusivamente client-side</li>
                             <li>Backup regolari e sicuri</li>
                             <li>Valutazione d'impatto sulla protezione dei dati (DPIA)</li>
@@ -154,6 +135,9 @@
                             <li><strong>Privacy by Design:</strong> Protezione dati integrata nella progettazione</li>
                             <li><strong>Privacy by Default:</strong> Impostazioni privacy più restrittive per default
                             </li>
+                            <li><strong>Account facoltativo e minimizzazione:</strong> senza accesso nessun dato lascia
+                                il browser; con un account vengono salvati solo l'esito dell'analisi e i profili
+                                disattivati, cifrati end-to-end nel browser, mai il file ZIP</li>
                         </ul>
                     </section>
 

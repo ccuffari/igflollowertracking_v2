@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="scripts/lib/extension-noise.js?v=2.7.1"></script>
+  <script src="scripts/extension-guard.js?v=2.7.1"></script>
+  <title>Accedi - Instagram Follower Tracker</title>
+  <meta name="description" content="Accedi o registrati per salvare lo storico delle analisi e i profili disattivati. Puoi anche continuare come ospite.">
+  <meta name="robots" content="noindex,follow">
+  <link rel="stylesheet" href="css/00-variables.css?v=2.7.1">
+  <link rel="stylesheet" href="css/01-base.css?v=2.7.1">
+  <link rel="stylesheet" href="css/02-layout.css?v=2.7.1">
+  <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.1">
+  <link rel="stylesheet" href="css/04-components.css?v=2.7.1">
+  <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.1">
+  <link rel="stylesheet" href="css/09-auth.css?v=2.7.1">
+  <link rel="stylesheet" href="css/general.css?v=2.7.1">
+  <link rel="stylesheet" href="css/10-theme.css?v=2.7.1">
+  <link rel="stylesheet" href="css/11-login.css?v=2.7.1">
+</head>
+
+<body class="login-page">
+  <main class="login-shell">
+    <a class="login-brand" href="index.html">
+      <span class="logo" aria-hidden="true" style="background: linear-gradient(135deg, #f09433, #dc2743, #bc1888); color: #fff;">IG</span>
+      <span>
+        <strong>Instagram Follower Tracker</strong>
+        <small>Analisi follower, senza condividere l'account.</small>
+      </span>
+    </a>
+
+    <section class="login-card" aria-labelledby="loginTitle">
+      <h1 id="loginTitle">Accedi</h1>
+      <p class="login-sub">L'account è facoltativo: puoi usare l'app come ospite in qualsiasi momento. Con un account, analisi e profili disattivati vengono cifrati automaticamente nel browser: non devi attivare nulla.</p>
+
+      <div id="loginNotice" class="igft-alert igft-alert--warning" hidden></div>
+      <div id="loginExisting" class="login-existing" hidden>
+        <p>Sei già connesso come <strong id="loginExistingMail"></strong>.</p>
+        <div class="login-actions">
+          <a class="btn" href="index.html">Vai all'app</a>
+          <button type="button" class="btn ghost" id="loginSignOut">Esci</button>
+        </div>
+      </div>
+
+      <div id="loginFlow">
+        <div class="login-tabs" role="tablist">
+          <button type="button" role="tab" class="login-tab is-active" data-login-tab="login" aria-selected="true">Accedi</button>
+          <button type="button" role="tab" class="login-tab" data-login-tab="register" aria-selected="false">Registrati</button>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <label class="login-field">Email
+            <input type="email" id="loginEmail" autocomplete="email" required placeholder="nome@esempio.it">
+          </label>
+          <label class="login-field">Password
+            <input type="password" id="loginPassword" autocomplete="current-password" required minlength="6" placeholder="Almeno 6 caratteri">
+          </label>
+          <label class="login-field" id="loginConfirmWrap" hidden>Conferma password
+            <input type="password" id="loginPasswordConfirm" autocomplete="new-password" minlength="12" placeholder="Ripeti la password">
+          </label>
+          <p class="login-sub" id="loginCryptoHint" hidden>La password protegge anche la cifratura zero-knowledge dei tuoi dati: usane una lunga (almeno 12 caratteri) e difficile da indovinare. Non viene mai inviata ai server.</p>
+          <div id="loginError" class="igft-alert igft-alert--error" hidden></div>
+          <button type="submit" class="btn login-submit" id="loginSubmit">Accedi</button>
+        </form>
+
+        <div class="login-sep"><span>oppure</span></div>
+        <button type="button" class="btn ghost login-google" id="loginGoogle">
+          <span class="igft-google__mark" aria-hidden="true">G</span> Continua con Google
+        </button>
+        <button type="button" class="login-link" id="loginForgot">Password dimenticata?</button>
+      </div>
+
+      <form id="resetForm" class="login-reset" hidden novalidate>
+        <h2>Reimposta la password</h2>
+        <p class="login-sub">Riceverai un link via email per impostare una nuova password.</p>
+        <p class="login-sub"><strong>Attenzione:</strong> la reimpostazione via email non cambia la chiave di cifratura. I dati cifrati restano leggibili solo con la vecchia password; se l'hai dimenticata non sono recuperabili da nessuno.</p>
+        <label class="login-field">Email
+          <input type="email" id="resetEmail" autocomplete="email" required placeholder="nome@esempio.it">
+        </label>
+        <div id="resetError" class="igft-alert igft-alert--error" hidden></div>
+        <div class="login-actions">
+          <button type="submit" class="btn" id="resetSubmit">Invia link</button>
+          <button type="button" class="btn ghost" id="resetBack">Torna all'accesso</button>
+        </div>
+      </form>
+
+      <div class="login-guest">
+        <a class="btn ghost login-guest-btn" href="index.html">Continua come ospite</a>
+        <p>In modalità ospite i dati restano solo su questo dispositivo.</p>
+      </div>
+    </section>
+
+    <footer class="login-footer">
+      <a href="privacy-policy.html">Privacy</a>
+      <a href="terms-of-service.html">Termini</a>
+      <a href="contact.html">Contatti</a>
+    </footer>
+  </main>
+
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script defer src="scripts/lib/crypto.js?v=2.7.1"></script>
+  <script defer src="scripts/lib/vault.js?v=2.7.1"></script>
+  <script defer src="scripts/firebase-init.js?v=2.7.1"></script>
+  <script defer src="scripts/login.js?v=2.7.1"></script>
+</body>
+
+</html>

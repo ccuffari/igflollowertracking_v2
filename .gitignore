@@ -10,6 +10,9 @@ firebase-debug.*.log*
 # Firebase cache
 .firebase/
 
+# Firebase config locale (solo sviluppo: non committare)
+public/scripts/firebase-config.js
+
 # Firebase config
 
 # Uncomment this if you'd like others to create their own Firebase project.
