@@ -9,7 +9,11 @@ const vm = require('node:vm');
 const CORE = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'lib', 'analysis-core.js'), 'utf8');
 const STORE = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'store.js'), 'utf8');
 
-function createStore(firebase) {
+function createStore(firebase, options) {
+  const opts = options || {};
+  const timers = opts.fastTimers
+    ? (fn, ms) => setTimeout(fn, Math.min(ms, 25))
+    : setTimeout;
   const memory = new Map();
   const localStorage = {
     getItem(key) { return memory.has(key) ? memory.get(key) : null; },
@@ -17,7 +21,7 @@ function createStore(firebase) {
     removeItem(key) { memory.delete(key); }
   };
   const context = {
-    console,
+    console: opts.consoleImpl || console,
     localStorage,
     Map,
     Set,
@@ -29,7 +33,7 @@ function createStore(firebase) {
     Object,
     Array,
     Promise,
-    setTimeout,
+    setTimeout: timers,
     clearTimeout
   };
   context.window = context;
@@ -159,4 +163,57 @@ test('switchToCloud resta cloud anche se i disattivati si sincronizzano lentamen
 
   release();
   await new Promise((resolve) => setTimeout(resolve, 10));
+});
+
+test('i timeout cloud restano informativi e non degradano la sessione', async () => {
+  const logs = { info: [], warn: [], error: [] };
+  const hangingQuery = {
+    orderBy() { return hangingQuery; },
+    limit() { return hangingQuery; },
+    startAfter() { return hangingQuery; },
+    get() { return new Promise(() => {}); }
+  };
+  const userDoc = {
+    collection() { return hangingQuery; },
+    set() { return new Promise(() => {}); }
+  };
+  const firebase = {
+    ready: Promise.resolve(),
+    available: true,
+    db: {
+      collection() { return { doc() { return userDoc; } }; },
+      batch() {
+        return {
+          set() {},
+          delete() {},
+          commit() { return new Promise(() => {}); }
+        };
+      }
+    },
+    auth: {
+      onAuthStateChanged(callback) {
+        callback({ uid: 'user-1', email: 'test@example.com' });
+      }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+
+  const { store } = createStore(firebase, {
+    fastTimers: true,
+    consoleImpl: {
+      info(message) { logs.info.push(String(message)); },
+      warn(message) { logs.warn.push(String(message)); },
+      error(message) { logs.error.push(String(message)); }
+    }
+  });
+
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 120));
+
+  const status = store.getStatus();
+  assert.equal(status.storage, 'cloud');
+  assert.equal(status.cloudError, null);
+  assert.equal(logs.warn.length, 0);
+  assert.equal(logs.error.length, 0);
+  assert.ok(logs.info.some((message) => message.includes('sincronizzazione cloud in background')));
 });

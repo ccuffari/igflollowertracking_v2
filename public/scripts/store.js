@@ -45,11 +45,66 @@
     analyses: [],
     settings: { autoSave: true },
     error: null,
-    cloudError: null
+    cloudError: null,
+    cloudSync: 'idle', // 'idle' | 'ok' | 'slow' | 'error'
+    cloudSyncReason: null
   };
 
   var listeners = new Set();
   var suppressNotify = false;
+
+  // Stato della sincronizzazione in background. Un timeout è un rallentamento,
+  // non un errore: si registra una sola riga informativa, si sospendono i
+  // tentativi per un po' (backoff) e si riprova da soli, senza stack trace.
+  var cloudSync = {
+    inFlight: false,
+    slowUntil: 0,
+    slowLevel: 0,
+    slowLogged: false,
+    retryTimer: null
+  };
+
+  function cloudBackoffActive() {
+    return Date.now() < cloudSync.slowUntil;
+  }
+
+  function cloudSlow(reason) {
+    cloudSync.slowLevel = Math.min(cloudSync.slowLevel + 1, 4);
+    var wait = 60000 * Math.pow(2, cloudSync.slowLevel - 1);
+    cloudSync.slowUntil = Date.now() + wait;
+    state.cloudSync = 'slow';
+    state.cloudSyncReason = reason || null;
+
+    if (!cloudSync.slowLogged) {
+      cloudSync.slowLogged = true;
+      console.info(
+        '[IGFT] sincronizzazione cloud in background' +
+        (reason ? ' (' + reason + ')' : '') +
+        ': nessuna azione richiesta, i dati restano salvati su questo dispositivo.'
+      );
+    }
+    scheduleCloudRetry(wait);
+  }
+
+  function cloudOk() {
+    cloudSync.slowUntil = 0;
+    cloudSync.slowLevel = 0;
+    cloudSync.slowLogged = false;
+    state.cloudSync = 'ok';
+    state.cloudSyncReason = null;
+  }
+
+  function scheduleCloudRetry(wait) {
+    if (cloudSync.retryTimer) clearTimeout(cloudSync.retryTimer);
+    cloudSync.retryTimer = setTimeout(function () {
+      cloudSync.retryTimer = null;
+      if (!state.user || state.storage !== 'cloud' || cloudSync.inFlight) return;
+      syncCloudInBackground(state.user.uid, false);
+    }, Math.max(5000, wait));
+    if (cloudSync.retryTimer && typeof cloudSync.retryTimer.unref === 'function') {
+      cloudSync.retryTimer.unref();
+    }
+  }
 
   function notify() {
     if (suppressNotify) return;
@@ -357,15 +412,15 @@
     var local = saveLocalAnalysis(newId(), normalized);
     notify();
 
-    if (isCloud()) {
+    if (isCloud() && !cloudBackoffActive()) {
       try {
         var saved = await withTimeout(
           saveCloudAnalysis(local ? local.id : null, normalized),
-          25000,
+          15000,
           'Sincronizzazione cloud troppo lenta.'
         );
-        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
         state.cloudError = null;
+        cloudOk();
         notify();
         return {
           id: saved.id,
@@ -374,12 +429,11 @@
         };
       } catch (error) {
         if (isTimeout(error)) {
-          // La copia locale è già salvata: il cloud può completare più tardi.
-          state.cloudError = null;
-          console.warn('[IGFT] salvataggio cloud lento, copia locale disponibile', error);
+          // La copia locale è già salvata: il cloud completa più tardi.
+          cloudSlow('salvataggio analisi');
         } else {
           state.cloudError = errorMessage(error);
-          console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale', error);
+          console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale: ' + state.cloudError);
           state.storage = 'local-fallback';
           if (state.user) {
             try {
@@ -399,11 +453,17 @@
   }
 
   async function listAnalyses() {
-    if (isCloud()) {
+    if (isCloud() && !cloudBackoffActive()) {
       try {
-        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
+        await withTimeout(refreshCloudAnalyses(), 12000, 'Lettura dello storico cloud troppo lenta.');
+        state.cloudError = null;
+        cloudOk();
       } catch (error) {
-        state.cloudError = errorMessage(error);
+        if (isTimeout(error)) {
+          cloudSlow('storico');
+        } else {
+          state.cloudError = errorMessage(error);
+        }
       }
     }
     return sortByDateDesc(state.analyses);
@@ -429,20 +489,24 @@
         truncated: !!data.truncated,
         storage: 'cloud'
       };
-    }));
+    }).concat(localAnalysisIndex().map(function (item) {
+      return Object.assign({}, item, { storage: 'local' });
+    }).filter(function (item) {
+      return item && item.id && !snapshot.docs.some(function (doc) { return doc.id === item.id; });
+    })));
   }
 
   async function getAnalysis(id) {
     if (!id) return null;
 
-    if (isCloud()) {
+    if (isCloud() && !cloudBackoffActive()) {
       try {
         var doc = userDoc();
         var ref = doc.collection('analyses').doc(id);
-        var snapshot = await ref.get();
+        var snapshot = await withTimeout(ref.get(), 10000, 'Lettura analisi troppo lenta.');
         if (!snapshot.exists) return null;
         var data = snapshot.data() || {};
-        var items = await ref.collection('items').get();
+        var items = await withTimeout(ref.collection('items').get(), 10000, 'Lettura analisi troppo lenta.');
         var usernames = [];
         items.docs
           .slice()
@@ -451,6 +515,7 @@
             var chunk = item.data() || {};
             if (Array.isArray(chunk.usernames)) usernames = usernames.concat(chunk.usernames);
           });
+        cloudOk();
         return {
           id: id,
           createdAt: data.createdAt || null,
@@ -463,8 +528,12 @@
           notFollowing: Core.uniqueUsernames(usernames)
         };
       } catch (error) {
-        state.cloudError = errorMessage(error);
-        notify();
+        if (isTimeout(error)) {
+          cloudSlow('dettaglio analisi');
+        } else {
+          state.cloudError = errorMessage(error);
+          notify();
+        }
       }
     }
 
@@ -486,20 +555,24 @@
   async function deleteAnalysis(id) {
     if (!id) return;
 
-    if (isCloud()) {
+    if (isCloud() && !cloudBackoffActive()) {
       var doc = userDoc();
       if (doc) {
         try {
           var ref = doc.collection('analyses').doc(id);
-          var items = await ref.collection('items').get();
+          var items = await withTimeout(ref.collection('items').get(), 12000, 'Eliminazione analisi troppo lenta.');
           var fb = firebaseState();
           var batch = fb.db.batch();
           items.docs.forEach(function (item) { batch.delete(item.ref); });
           batch.delete(ref);
-          await batch.commit();
+          await withTimeout(batch.commit(), 12000, 'Eliminazione analisi troppo lenta.');
         } catch (error) {
-          state.cloudError = errorMessage(error);
-          notify();
+          if (isTimeout(error)) {
+            cloudSlow('eliminazione analisi');
+          } else {
+            state.cloudError = errorMessage(error);
+            notify();
+          }
         }
       }
     }
@@ -560,7 +633,6 @@
       } catch (error) {
         if (isTimeout(error)) {
           // Scrittura ancora in corso: la copia locale è già persistita.
-          console.warn('[IGFT] sincronizzazione profilo disattivato lenta, resta la copia locale', error);
           return { synced: true };
         }
         state.cloudError = errorMessage(error);
@@ -584,7 +656,6 @@
         return { synced: true };
       } catch (error) {
         if (isTimeout(error)) {
-          console.warn('[IGFT] rimozione profilo disattivato lenta, resta la copia locale', error);
           return { synced: true };
         }
         state.cloudError = errorMessage(error);
@@ -701,75 +772,86 @@
     }
   }
 
-  async function switchToCloud(user, force) {
+  function switchToCloud(user, force) {
     if (!force && state.user && state.user.uid === user.uid && state.storage === 'cloud') {
       return;
     }
     state.user = user;
     state.storage = 'cloud';
-    state.loading = true;
+    state.loading = false;
     state.error = null;
+    state.cloudError = null;
     notify();
 
-    // L'accesso al cloud dipende solo dalla lettura dello storico: l'unione dei
-    // profili disattivati e la migrazione sono best-effort e non devono mai
-    // degradare l'app a locale se sono semplicemente lente o parziali.
-    try {
-      await withTimeout(refreshCloudAnalyses(), 20000, 'Lettura dello storico cloud troppo lenta.');
-      state.cloudError = null;
-    } catch (error) {
-      if (isTimeout(error)) {
-        // Il cloud è raggiungibile ma lento: restiamo in modalità cloud e
-        // riproviamo in background, senza mostrare un errore all'utente.
-        state.storage = 'cloud';
-        state.cloudError = null;
-        console.warn('[IGFT] lettura storico cloud lenta, nuovo tentativo in background', error);
-      } else {
-        state.cloudError = errorMessage(error);
-        state.storage = 'local-fallback';
-        console.warn('[IGFT] sincronizzazione cloud non disponibile', error);
-      }
-    } finally {
-      state.loading = false;
-      notify();
-    }
-
-    if (state.storage !== 'cloud') return;
-
-    syncCloudInBackground(user.uid);
+    // La sincronizzazione non blocca l'interfaccia: lo storico locale è già
+    // disponibile, il cloud si allinea in background.
+    if (!force && cloudBackoffActive()) return;
+    syncCloudInBackground(user.uid, force);
   }
 
-  function syncCloudInBackground(uid) {
+  async function syncCloudInBackground(uid, force) {
+    if (cloudSync.inFlight) return;
+    if (!force && cloudBackoffActive()) return;
+
+    cloudSync.inFlight = true;
     var guard = function () {
       return !!state.user && state.user.uid === uid && state.storage === 'cloud';
     };
 
-    mergeDeactivatedIntoCloud(uid)
-      .then(function () {
-        if (guard()) state.cloudError = null;
-      })
-      .catch(function (error) {
-        console.warn('[IGFT] unione profili disattivati non completata, verrà ritentata', error);
-      })
-      .then(function () {
-        if (!guard()) return;
-        return withTimeout(refreshCloudAnalyses(), 20000, 'Lettura dello storico cloud troppo lenta.')
-          .catch(function (error) {
-            if (!isTimeout(error)) {
-              console.warn('[IGFT] lettura storico cloud non completata', error);
-            }
-          });
-      })
-      .then(function () {
-        if (!guard()) return;
-        return withTimeout(migrateLocalAnalyses(uid), 30000, 'Migrazione analisi troppo lenta.')
-          .catch(function (error) {
-            console.warn('[IGFT] migrazione analisi non completata, verrà ritentata', error);
-          });
-      })
-      .then(function () {
+    try {
+      // 1. Storico: è l'unica operazione che determina lo stato della sessione.
+      try {
+        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
+        if (guard()) {
+          state.cloudError = null;
+          cloudOk();
+          notify();
+        }
+      } catch (error) {
+        if (isTimeout(error)) {
+          cloudSlow('storico');
+          return;
+        }
+        if (guard()) {
+          state.cloudError = errorMessage(error);
+          state.storage = 'local-fallback';
+          console.warn('[IGFT] Firestore non disponibile: ' + state.cloudError);
+          notify();
+        }
+        return;
+      }
+
+      // 2. Unione dei profili disattivati (best-effort).
+      try {
+        await withTimeout(mergeDeactivatedIntoCloud(uid), 15000, 'Unione profili disattivati troppo lenta.');
         if (guard()) notify();
-      });
+      } catch (error) {
+        if (isTimeout(error)) {
+          cloudSlow('profili disattivati');
+          return;
+        }
+        console.warn('[IGFT] unione profili disattivati non riuscita: ' + errorMessage(error));
+      }
+
+      // 3. Migrazione dello storico locale (best-effort).
+      try {
+        await withTimeout(migrateLocalAnalyses(uid), 20000, 'Migrazione analisi troppo lenta.');
+      } catch (error) {
+        if (isTimeout(error)) {
+          cloudSlow('migrazione');
+          return;
+        }
+        console.warn('[IGFT] migrazione analisi non riuscita: ' + errorMessage(error));
+      }
+
+      if (guard()) {
+        state.cloudError = null;
+        cloudOk();
+        notify();
+      }
+    } finally {
+      cloudSync.inFlight = false;
+    }
   }
 
   function switchToLocal() {
@@ -778,6 +860,13 @@
     state.storage = 'local';
     state.cloudError = null;
     state.loading = false;
+    cloudOk();
+    state.cloudSync = 'idle';
+    state.cloudSyncReason = null;
+    if (cloudSync.retryTimer) {
+      clearTimeout(cloudSync.retryTimer);
+      cloudSync.retryTimer = null;
+    }
 
     if (wasCloud) {
       // Dopo il logout non lasciare sul dispositivo la copia dei dati dell'account:
@@ -797,7 +886,11 @@
 
   async function retryCloud() {
     if (!state.user) return false;
-    await switchToCloud(state.user, true);
+    cloudOk();
+    state.storage = 'cloud';
+    state.cloudError = null;
+    notify();
+    await syncCloudInBackground(state.user.uid, true);
     return state.storage === 'cloud';
   }
 
@@ -830,7 +923,11 @@
       var fb = firebaseState();
       if (doc && fb) {
         try {
-          var snapshot = await doc.collection('deactivated').get();
+          var snapshot = await withTimeout(
+            doc.collection('deactivated').get(),
+            15000,
+            'Eliminazione dati cloud troppo lenta.'
+          );
           for (var start = 0; start < snapshot.docs.length; start += LIMITS.batchSize) {
             var batch = fb.db.batch();
             snapshot.docs.slice(start, start + LIMITS.batchSize).forEach(function (item) {
@@ -894,6 +991,8 @@
       cloudAvailable: !!(firebaseState() && firebaseState().available),
       error: state.error,
       cloudError: state.cloudError,
+      cloudSync: state.cloudSync,
+      cloudSyncReason: state.cloudSyncReason,
       autoSave: state.settings.autoSave,
       deactivatedCount: state.deactivated.size,
       analysesCount: state.analyses.length

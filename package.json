@@ -1,6 +1,6 @@
 {
   "name": "igfollowertracking-v2",
-  "version": "2.1.0",
+  "version": "2.2.1",
   "private": true,
   "description": "Instagram Follower Tracker — web app statica su Firebase Hosting con account facoltativo",
   "scripts": {

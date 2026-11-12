@@ -137,3 +137,28 @@ Checklist dopo il deploy:
 L'attivazione dell'area personale introduce un trattamento su server: l'informativa privacy
 (`public/privacy-policy.html`) è stata aggiornata con finalità, dati trattati, conservazione,
 fornitore (Google Firebase) e modalità di cancellazione. La modalità ospite resta locale.
+
+## 9. Troubleshooting sincronizzazione
+
+La console del browser non deve mostrare errori quando Firestore non è attivo: l'app resta
+utilizzabile e salva tutto in locale. Una singola riga informativa del tipo
+`[IGFT] sincronizzazione cloud in background ...` è attesa e non richiede azioni.
+
+Se compare, verificare in ordine:
+
+1. **Firestore API abilitata** nel progetto Google Cloud:
+   ```bash
+   gcloud services enable firestore.googleapis.com --project igfollowertracking-v2
+   firebase firestore:databases:list --project igfollowertracking-v2
+   ```
+   Se il comando restituisce `403` con "Cloud Firestore API has not been used", la API non è
+   attiva e la console Firebase **non** può creare il database: abilitarla prima.
+2. **Database creato** (sezione 2) nella regione scelta: finché non esiste, ogni lettura resta
+   in attesa fino al timeout e l'app continua in locale.
+3. **Regole pubblicate** (`firebase deploy --only firestore:rules`): un errore di permessi è
+   invece mostrato in interfaccia con il pulsante "Riprova".
+4. **Rete/proxy**: se Firestore è raggiungibile ma lento, l'app ritenta da sola con backoff
+   (1, 2, 4, 8 minuti) senza bloccare l'interfaccia.
+
+Nota: i timeout sono trattati come rallentamenti, non come guasti. Il salvataggio locale
+avviene sempre per primo; l'allineamento cloud è best-effort e ritentato in background.

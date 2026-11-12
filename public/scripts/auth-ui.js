@@ -154,7 +154,10 @@
 
   function storageLabel() {
     var status = Store.getStatus();
-    if (status.storage === 'cloud') return 'Sincronizzate con il tuo account';
+    if (status.storage === 'cloud') {
+      if (status.cloudSync === 'slow') return 'Sincronizzazione in background: i dati sono salvati anche su questo dispositivo';
+      return 'Sincronizzate con il tuo account';
+    }
     if (status.storage === 'local-fallback') return 'Sincronizzazione non disponibile: dati salvati solo su questo dispositivo';
     return 'Salvate solo su questo dispositivo';
   }
