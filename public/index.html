@@ -7,25 +7,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Instagram Follower Tracker - Scopri Chi Non Ti Segue</title>
   <meta name="description" content="Scopri chi non ti segue più su Instagram. Carica il tuo file ZIP esportato e ottieni l'analisi istantanea. Privacy garantita, completamente gratuito.">
-  
-  <!-- Schema.org markup -->
+
   <meta itemprop="name" content="Instagram Follower Tracker">
   <meta itemprop="description" content="Strumento gratuito per analizzare follower e following su Instagram">
   <meta itemprop="applicationCategory" content="Utility">
   <meta itemprop="operatingSystem" content="Web">
-  
-  <!-- Open Graph / Facebook -->
+
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://instagram-follower-tracker.com/">
   <meta property="og:title" content="Instagram Follower Tracker - Scopri Chi Non Ti Segue">
   <meta property="og:description" content="Scopri chi non ti segue più su Instagram. Analisi gratuita e sicura.">
-  
-  <!-- Twitter -->
+
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://instagram-follower-tracker.com/">
   <meta property="twitter:title" content="Instagram Follower Tracker - Scopri Chi Non Ti Segue">
   <meta property="twitter:description" content="Scopri chi non ti segue più su Instagram. Analisi gratuita e sicura.">
-  
+
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-base.css">
   <link rel="stylesheet" href="css/02-layout.css">
@@ -37,249 +34,7 @@
   <link rel="stylesheet" href="css/08-responsive.css">
   <link rel="stylesheet" href="css/09-auth.css">
   <link rel="stylesheet" href="css/general.css">
-
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
-  
-  <style>
-    .ig-gradient {
-      background: linear-gradient(45deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D, #F56040, #F77737, #FCAF45, #FFDC80);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    
-    .ig-btn {
-      background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C, #F77737);
-      color: white;
-      border: none;
-      border-radius: 10px;
-      font-weight: 600;
-      transition: transform 0.2s, box-shadow 0.2s;
-      cursor: pointer;
-    }
-    
-    .ig-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(131, 58, 180, 0.3);
-    }
-    
-    .expandable-header {
-      padding: 15px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 600;
-      color: #333;
-      background: #fafafa;
-      border-radius: 8px;
-      margin: 10px 0;
-      border: 1px solid #e0e0e0;
-      transition: background 0.2s;
-    }
-    
-    .expandable-header:hover {
-      background: #f0f0f0;
-    }
-    
-    .expandable-content {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease-out;
-      background: white;
-      border-radius: 0 0 8px 8px;
-    }
-    
-    .expandable-content.open {
-      max-height: 1000px;
-      padding: 15px;
-      border: 1px solid #e0e0e0;
-      border-top: none;
-      margin-bottom: 10px;
-    }
-    
-    .expandable-icon {
-      transition: transform 0.3s;
-    }
-    
-    .expandable-icon.open {
-      transform: rotate(180deg);
-    }
-    
-    .upload-section {
-      border: 2px dashed;
-      border-image: linear-gradient(45deg, #405DE6, #833AB4, #E1306C) 1;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 25px 0;
-      position: relative;
-    }
-    
-    .upload-section:before {
-      content: "";
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C);
-      border-radius: 14px;
-      z-index: -1;
-      opacity: 0.1;
-    }
-    
-    .controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 15px;
-    }
-    
-    .pill {
-      background: #e9ecef;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      display: inline-block;
-    }
-    
-    .pill.success { background: #d4edda; color: #155724; }
-    .pill.processing { background: #fff3cd; color: #856404; }
-    .pill.error { background: #f8d7da; color: #721c24; }
-    
-    .results-container {
-      background: white;
-      border-radius: 12px;
-      border: 1px solid #ddd;
-      overflow: hidden;
-      margin-top: 20px;
-    }
-    
-    .results-header {
-      background: linear-gradient(45deg, #405DE6, #833AB4);
-      color: white;
-      padding: 15px 20px;
-    }
-    
-    .footer-links {
-      display: flex;
-      gap: 15px;
-      justify-content: center;
-      margin-top: 10px;
-      flex-wrap: wrap;
-    }
-    
-    .footer-links a {
-      color: #666;
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-    
-    .footer-links a:hover {
-      color: #405DE6;
-    }
-    
-    .feature-tag {
-      display: inline-block;
-      background: rgba(64, 93, 230, 0.1);
-      color: #405DE6;
-      padding: 4px 10px;
-      border-radius: 15px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      margin: 0 5px 5px 0;
-    }
-    
-    .trust-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin: 20px 0;
-    }
-    
-    .trust-badge {
-      background: white;
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.9rem;
-    }
-    
-    .ad-container {
-      margin: 25px 0;
-      text-align: center;
-      min-height: 90px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .ad-container.leaderboard {
-      min-height: 250px;
-    }
-    
-    @media (max-width: 768px) {
-      .controls {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      
-      .controls .btn {
-        width: 100%;
-        text-align: center;
-      }
-      
-      .trust-badges {
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .trust-badge {
-        width: 100%;
-        max-width: 300px;
-      }
-      
-      .footer-links {
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-      }
-    }
-    
-    @media (max-width: 480px) {
-      .upload-section {
-        padding: 15px;
-      }
-      
-      .results-header h3 {
-        font-size: 1.2rem;
-      }
-    }
-  </style>
-  
-  <!-- Google AdSense Auto Ads -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
-  
-  <script>
-    // Compatibilità per AdSense
-    (function() {
-      // Inizializza AdSense
-      window.adsbygoogle = window.adsbygoogle || [];
-      
-      // Controllo per evitare problemi in modalità quirks
-      if (document.compatMode !== 'CSS1Compat') {
-        window.__PAGE_IN_QUIRKS = true;
-      } else {
-        window.__PAGE_IN_QUIRKS = false;
-      }
-    })();
-  </script>
+  <link rel="stylesheet" href="css/10-theme.css">
 </head>
 
 <body itemscope itemtype="https://schema.org/WebPage">
@@ -287,210 +42,72 @@
     <div class="container">
       <div class="panel" role="main" itemprop="mainContentOfPage">
 
-        <!-- HEADER -->
         <header>
-          <div class="logo" aria-hidden="true" style="background: linear-gradient(45deg, #405DE6, #833AB4, #E1306C); color: white;">IG</div>
+          <div class="logo" aria-hidden="true" style="background: linear-gradient(135deg, #2dd4bf, #38bdf8, #818cf8); color: #06121f;">IG</div>
           <div style="flex:1;min-width:0">
-            <h1 itemprop="headline" class="ig-gradient">Instagram Follower Tracker</h1>
-            <p class="subtitle">Analizza i tuoi follower e scopri chi non ti segue più - completamente sicuro e privato</p>
+            <h1 itemprop="headline">Instagram Follower Tracker</h1>
+            <p class="subtitle">Scopri chi non ti segue più, senza condividere il tuo account.</p>
           </div>
-          <div id="igftAccount" class="igft-account"></div>
+          <div id="igftAccount" class="igft-account">
+            <a class="igft-icon-btn" href="login.html" title="Accedi" aria-label="Accedi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            </a>
+          </div>
         </header>
 
-        <!-- TRUST BADGES -->
-        <div class="trust-badges">
-          <div class="trust-badge">
-            <span style="color:#28a745;">✓</span> Elaborazione 100% offline
-          </div>
-          <div class="trust-badge">
-            <span style="color:#28a745;">✓</span> Nessun accesso al tuo account
-          </div>
-          <div class="trust-badge">
-            <span style="color:#28a745;">✓</span> Dati sul cloud solo se accedi
-          </div>
-          <div class="trust-badge">
-            <span style="color:#28a745;">✓</span> Analisi immediata
-          </div>
-        </div>
-
-        <div style="background: #f5f7ff; border: 1px solid #dbe2ff; border-radius: 10px; padding: 12px 15px; margin-bottom: 20px; color: #3730a3; font-size: 0.92em; line-height: 1.5;">
-          <strong>Account facoltativo.</strong> Puoi usare l'app come ospite, senza registrarti.
-          <button type="button" class="igft-inline-link" data-igft-open-auth>Accedi o registrati</button>
-          per salvare lo storico delle analisi e ritrovare i profili disattivati anche su altri dispositivi.
-        </div>
-
-        <!-- GUIDA ESPANDIBILE -->
-        <div class="expandable-header" onclick="toggleExpandable('guide')">
-          <span>📚 Guida passo-passo per esportare i dati da Instagram</span>
-          <span class="expandable-icon" id="guide-icon">▼</span>
-        </div>
-        <div class="expandable-content" id="guide-content">
-          <div style="padding: 10px 0;">
-            <p><strong>Importante:</strong> Per ottenere un file corretto e leggero, segui queste impostazioni precise:</p>
-            
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-              <h4 style="margin-top: 0;">Impostazioni consigliate:</h4>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li><strong>Intervallo di date:</strong> "Dall'inizio" (seleziona tutta la cronologia)</li>
-                <li><strong>Formato:</strong> JSON (obbligatorio per il nostro strumento)</li>
-                <li><strong>Dimensione file:</strong> Seleziona solo "Followers e following" per file più piccoli</li>
-                <li><strong>Email per il download:</strong> Usa l'email associata al tuo account Instagram</li>
-              </ul>
-            </div>
-            
-            <h4>Passaggi dettagliati:</h4>
-            <ol style="padding-left: 20px;">
-              <li><strong>Apri Instagram</strong> (app mobile o desktop)</li>
-              <li>Vai sul tuo <strong>profilo</strong> e clicca sul menu (tre linee in alto a destra)</li>
-              <li>Seleziona <strong>"Impostazioni e privacy"</strong></li>
-              <li>Scorri fino a <strong>"Centro per la privacy"</strong> → <strong>"Scarica le tue informazioni"</strong></li>
-              <li>Clicca <strong>"Richiedi download"</strong></li>
-              <li><strong>Configurazione IMPORTANTE:</strong>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                  <li>Clicca su <strong>"Seleziona tipi di informazioni"</strong></li>
-                  <li><strong>Deseleziona TUTTO</strong> tranne <strong>"Followers e following"</strong></li>
-                  <li><strong>Intervallo di date:</strong> Seleziona "Dall'inizio"</li>
-                  <li><strong>Formato:</strong> Seleziona <strong>JSON</strong> (NON HTML)</li>
-                </ul>
-              </li>
-              <li>Clicca <strong>"Crea export"</strong> e conferma con la tua password</li>
-            </ol>
-            
-            <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
-              <p style="margin: 0;"><strong>💡 Cosa succede dopo:</strong></p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li>Instagram preparerà il tuo file (da 15 minuti a 48 ore)</li>
-                <li>Riceverai un'email con il link di download (controlla anche spam/promozioni)</li>
-                <li>Il link scade dopo 4 giorni - scarica subito il file ZIP</li>
-                <li>Il file sarà di 1-5 MB per la maggior parte degli account</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <!-- UPLOAD SECTION -->
-        <div class="upload-section">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0 0 10px 0;">Carica il tuo file ZIP da Instagram</h2>
-            <p style="margin: 0; color: #666;">Trascina il file qui o clicca per selezionarlo</p>
+        <section class="upload-section" aria-labelledby="uploadTitle">
+          <div class="upload-title">
+            <h2 id="uploadTitle">Carica il file ZIP di Instagram</h2>
+            <p>Analisi locale nel browser. Il file non viene mai caricato sui server.</p>
           </div>
 
           <div class="drop" id="dropzone">
             <div class="controls">
-              <label class="btn ig-btn" for="zipfile" id="selectZipLabel" style="padding:12px 24px;">📁 Seleziona File ZIP</label>
+              <label class="btn" for="zipfile" id="selectZipLabel" style="padding:11px 18px;">Seleziona file ZIP</label>
               <input id="zipfile" type="file" accept=".zip" style="display:none">
-              <button id="resetBtn" class="btn ghost" style="padding:12px 24px;">🔄 Reset</button>
+              <button id="resetBtn" class="btn ghost" type="button">Reset</button>
               <div style="flex:1;min-width:10px"></div>
               <div class="pill" id="statusPill">Pronto</div>
             </div>
-            
-            <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-              <p style="margin: 0; font-size: 0.9em; color: #666;">
-                <strong>⚠️ Assicurati:</strong> Il file deve essere quello scaricato direttamente da Instagram, non modificato e non rinominato.
-              </p>
-            </div>
           </div>
 
-          <div class="results-container">
-            <div class="results-header">
-              <h3 style="margin:0; color:white;">📊 Risultati dell'Analisi</h3>
-            </div>
-            <div class="results" id="results" aria-live="polite" style="padding:20px; min-height:200px;">
-              <div style="text-align: center; padding: 40px 20px;">
-                <div style="font-size: 3em; margin-bottom: 20px; color: #405DE6;">📁</div>
-                <p style="margin: 0 0 15px 0;"><strong>Carica il tuo file ZIP per iniziare l'analisi</strong></p>
-                <p style="margin: 0; font-size: 0.95em; color: #666; max-width: 500px; margin: 0 auto;">
-                  Dopo aver caricato il file, vedrai qui la lista completa delle persone che non ti seguono più, con statistiche dettagliate.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- FAQ ESPANDIBILE -->
-        <div class="expandable-header" onclick="toggleExpandable('faq')">
-          <span>❓ Domande Frequenti - Tutto quello che devi sapere</span>
-          <span class="expandable-icon" id="faq-icon">▼</span>
-        </div>
-        <div class="expandable-content" id="faq-content">
-          <div style="padding: 10px 0;">
-            
-            <div style="margin-bottom: 20px;">
-              <h4 style="margin-top: 0; color: #405DE6;">🔒 Sicurezza e Privacy</h4>
-              <p><strong>I miei dati sono veramente al sicuro?</strong></p>
-              <p>Sì, assolutamente. Il nostro sistema è progettato per la massima privacy:</p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li><strong>Nessun accesso al tuo account Instagram</strong> - non chiediamo mai password o accesso</li>
-                <li><strong>Elaborazione nel browser</strong> - l'analisi del file avviene sul tuo dispositivo</li>
-                <li><strong>Nessun file salvato</strong> - il file ZIP non viene mai caricato sui server</li>
-                <li><strong>Account facoltativo</strong> - senza accesso non salviamo nulla sui server; con un account salviamo solo il report (username) e i profili disattivati, come descritto nell'informativa privacy</li>
-                <li><strong>Nessun tracciamento</strong> - non usiamo cookie di profilazione o sistemi di tracciamento</li>
-              </ul>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-              <h4 style="margin-top: 0; color: #405DE6;">💳 Costi e Funzionalità</h4>
-              <p><strong>Quanto costa? Ci sono limiti?</strong></p>
-              <p>Il servizio è <strong>completamente gratuito</strong> senza limitazioni:</p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li>Nessun costo nascosto, nessun abbonamento</li>
-                <li>Registrazione facoltativa: puoi usarlo subito come ospite</li>
-                <li>Puoi analizzare file di qualsiasi dimensione</li>
-                <li>Numero illimitato di analisi</li>
-                <li>Manteniamo il servizio tramite pubblicità non invasiva</li>
-              </ul>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-              <h4 style="margin-top: 0; color: #405DE6;">📱 Compatibilità</h4>
-              <p><strong>Funziona su tutti i dispositivi?</strong></p>
-              <p>Sì, lo strumento è completamente responsive:</p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li><strong>Computer:</strong> Windows, macOS, Linux (Chrome, Firefox, Safari, Edge)</li>
-                <li><strong>Smartphone:</strong> iOS e Android (tutti i browser moderni)</li>
-                <li><strong>Tablet:</strong> iPad, Android tablet</li>
-                <li><strong>Non richiede app</strong> - funziona direttamente nel browser</li>
-              </ul>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-              <h4 style="margin-top: 0; color: #405DE6;">🎯 Precisione dei Risultati</h4>
-              <p><strong>Quanto sono accurati i risultati?</strong></p>
-              <p>I risultati sono basati sui dati ufficiali di Instagram:</p>
-              <ul style="margin: 10px 0; padding-left: 20px;">
-                <li>Usiamo i dati ufficiali forniti da Instagram</li>
-                <li>Analizziamo ogni voce nei file JSON originali</li>
-                <li>Confrontiamo direttamente le liste di following e followers</li>
-                <li>I risultati riflettono lo stato al momento dell'esportazione</li>
-              </ul>
-            </div>
-            
-            <div style="margin-bottom: 20px;">
-              <h4 style="margin-top: 0; color: #405DE6;">⚙️ Problemi Tecnici</h4>
-              <p><strong>Cosa fare se il file non viene analizzato?</strong></p>
-              <p>Se incontri problemi:</p>
-              <ol style="margin: 10px 0; padding-left: 20px;">
-                <li>Verifica di aver esportato correttamente con le impostazioni sopra indicate</li>
-                <li>Assicurati che il file non sia corrotto o incompleto</li>
-                <li>Prova a riesportare i dati da Instagram</li>
-                <li>Controlla di avere una connessione internet stabile per caricare il file</li>
-                <li>Prova con un browser diverso (Chrome, Firefox, Safari)</li>
+          <details class="guide">
+            <summary>Come scaricare il file da Instagram</summary>
+            <div class="guide__body">
+              <ol>
+                <li>Apri Instagram → <strong>Impostazioni e privacy</strong>.</li>
+                <li>Vai su <strong>Centro per la privacy → Scarica le tue informazioni</strong>.</li>
+                <li>Seleziona solo <strong>Followers e following</strong>, intervallo <strong>Dall'inizio</strong>, formato <strong>JSON</strong>.</li>
+                <li>Crea l'export, scarica lo ZIP e caricalo qui sopra.</li>
               </ol>
             </div>
-          </div>
-        </div>
+          </details>
+        </section>
 
-        <!-- FOOTER -->
-        <footer style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-          <p style="margin: 0 0 10px 0; color: #666;">&copy; <span id="currentYear"></span> Instagram Follower Tracker</p>
-          <div class="footer-links">
-            <a href="privacy-policy.html" aria-label="Leggi l'informativa sulla privacy">Informativa Privacy</a>
-            <a href="terms-of-service.html" aria-label="Leggi i termini di servizio">Termini di Servizio</a>
-            <a href="contact.html" aria-label="Contattaci per supporto">Contatti e Supporto</a>
-            <button type="button" class="igft-inline-link" data-igft-open-account>Area personale</button>
+        <section class="results-container" aria-labelledby="resultsTitle">
+          <div class="results-header">
+            <h2 id="resultsTitle">Risultati</h2>
           </div>
-          <p style="margin: 15px 0 0 0; font-size: 0.85em; color: #999;">
-            Questo strumento non è affiliato, associato, autorizzato, sostenuto o in alcun modo connesso con Instagram o Meta Platforms.<br>
+          <div class="results" id="results" aria-live="polite">
+            <div class="res-empty">
+              <div class="res-empty__icon" aria-hidden="true">📊</div>
+              <h3>Nessuna analisi ancora</h3>
+              <p>Carica il file ZIP per vedere chi non ti segue più.</p>
+            </div>
+          </div>
+        </section>
+
+        <footer class="app-footer">
+          <div class="app-footer__links">
+            <a href="privacy-policy.html">Informativa Privacy</a>
+            <a href="terms-of-service.html">Termini di Servizio</a>
+            <a href="contact.html">Contatti e Supporto</a>
+          </div>
+          <p class="app-footer__disclaimer">
+            Questo strumento non è affiliato, associato, autorizzato, sostenuto o in alcun modo connesso con Instagram o Meta Platforms.
             Instagram è un marchio registrato di Meta Platforms, Inc.
           </p>
         </footer>
@@ -498,7 +115,6 @@
     </div>
   </div>
 
-  <!-- Firebase SDK (compat) + moduli applicativi. L'ordine è significativo. -->
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
@@ -507,59 +123,13 @@
   <script defer src="scripts/store.js"></script>
   <script defer src="scripts/auth-ui.js"></script>
   <script defer src="scripts/app.js"></script>
-  
+
   <script>
-    // Funzione per espandere/contraire le sezioni
-    function toggleExpandable(id) {
-      const content = document.getElementById(`${id}-content`);
-      const icon = document.getElementById(`${id}-icon`);
-      
-      if (content.classList.contains('open')) {
-        content.classList.remove('open');
-        icon.classList.remove('open');
-      } else {
-        content.classList.add('open');
-        icon.classList.add('open');
-      }
-    }
-    
-    // Imposta l'anno corrente nel footer
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('currentYear').textContent = new Date().getFullYear();
-      
-      // Inizializza AdSense
-      if (!window.__PAGE_IN_QUIRKS) {
-        try {
-          // Attendi che la pagina sia completamente caricata
-          setTimeout(function() {
-            if (window.adsbygoogle) {
-              (adsbygoogle = window.adsbygoogle || []).push({});
-            }
-          }, 1000);
-        } catch (e) {
-          console.error('Errore nell\'inizializzazione di AdSense:', e);
-        }
-      }
-      
-      // Apre automaticamente la guida per utenti nuovi
-      if (!localStorage.getItem('hasSeenGuide')) {
-        setTimeout(() => {
-          toggleExpandable('guide');
-          localStorage.setItem('hasSeenGuide', 'true');
-        }, 500);
-      }
-    });
-    
-    // Gestione AdSense per cambiamenti di dimensione
-    window.addEventListener('resize', function() {
-      if (window.adsbygoogle) {
-        (adsbygoogle = window.adsbygoogle || []).push({});
-      }
+    document.addEventListener('DOMContentLoaded', function () {
+      var year = document.getElementById('currentYear');
+      if (year) year.textContent = new Date().getFullYear();
     });
   </script>
-  
-  <!-- Google AdSense per siti web -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1948802026580753" crossorigin="anonymous"></script>
 </body>
 
 </html>

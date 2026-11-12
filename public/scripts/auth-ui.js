@@ -184,14 +184,17 @@
 
     var hasLocalData = status.deactivatedCount > 0 || status.analysesCount > 0;
     area.innerHTML = [
-      '<button type="button" class="igft-account-btn" id="igftLoginBtn">Accedi</button>',
+      '<a class="igft-icon-btn" href="login.html" title="Accedi" aria-label="Accedi">',
+      '  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">',
+      '    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>',
+      '    <circle cx="12" cy="7" r="4"></circle>',
+      '  </svg>',
+      '</a>',
       hasLocalData
-        ? '<button type="button" class="igft-account-link" id="igftLocalBtn">Dati locali</button>'
+        ? '<button type="button" class="igft-icon-btn" id="igftLocalBtn" title="Storico locale" aria-label="Storico locale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 3v6h6"></path><path d="M12 7v5l3 2"></path></svg></button>'
         : ''
     ].join('');
 
-    var loginBtn = document.getElementById('igftLoginBtn');
-    if (loginBtn) loginBtn.addEventListener('click', function () { openAuth('login'); });
     var localBtn = document.getElementById('igftLocalBtn');
     if (localBtn) localBtn.addEventListener('click', function () { openLibrary('analyses'); });
   }
@@ -653,7 +656,7 @@
     }
 
     var login = document.getElementById('igftLibLogin');
-    if (login) login.addEventListener('click', function () { openAuth('login'); });
+    if (login) login.addEventListener('click', function () { window.location.href = 'login.html'; });
   }
 
   async function renderAnalyses() {
@@ -729,10 +732,11 @@
       return renderAnalysisDetail(detail);
     }
 
-    var notFollowing = (report.notFollowing || []).filter(function (username) {
-      return !Store.isDeactivated(username);
-    });
+    var notFollowing = report.notFollowing || [];
     var total = notFollowing.length;
+    var deactivatedInReport = notFollowing.filter(function (username) {
+      return Store.isDeactivated(username);
+    }).length;
     if (!detail.shown) detail.shown = Math.min(MAX_LIST_ROWS, total);
     var visible = notFollowing.slice(0, detail.shown);
 
@@ -741,6 +745,7 @@
         '<li class="igft-profile">',
         '  <span class="igft-profile__avatar" aria-hidden="true">' + escapeHtml(username.charAt(0).toUpperCase()) + '</span>',
         '  <span class="igft-profile__name">@' + escapeHtml(username) + '</span>',
+        Store.isDeactivated(username) ? '<span class="res-deactivated-tag">disattivato</span>' : '',
         '  <a class="igft-link" href="https://instagram.com/' + encodeURIComponent(username) + '" target="_blank" rel="noopener noreferrer nofollow">Apri</a>',
         '</li>'
       ].join('');
@@ -756,11 +761,14 @@
       report.removedDeactivatedCount > 0
         ? '<div class="igft-alert igft-alert--info">' + report.removedDeactivatedCount + ' profili disattivati sono stati rimossi da questa analisi.</div>'
         : '',
+      deactivatedInReport > 0
+        ? '<div class="igft-alert igft-alert--info">' + deactivatedInReport + ' profili di questa analisi sono ora marcati come disattivati: restano nello storico con l\'etichetta dedicata.</div>'
+        : '',
       report.truncated
         ? '<div class="igft-alert igft-alert--warning">Report molto grande: è stata salvata solo una parte della lista.</div>'
         : '',
       total === 0
-        ? '<div class="igft-empty"><p>Tutti i profili di questa analisi risultano disattivati.</p></div>'
+        ? '<div class="igft-empty"><p>Nessun profilo in questa analisi.</p></div>'
         : '<ul class="igft-profile-list">' + rows + '</ul>',
       detail.shown < total
         ? '<button type="button" class="btn ghost" id="igftShowMore">Mostra altri ' + Math.min(MAX_LIST_ROWS, total - detail.shown) + '</button>'

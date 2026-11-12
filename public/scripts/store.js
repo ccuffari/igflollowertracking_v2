@@ -86,6 +86,22 @@
     return (error && error.message) ? error.message : String(error);
   }
 
+  // Evita che un salvataggio cloud bloccato impedisca il salvataggio locale.
+  function withTimeout(promise, ms, message) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error(message || 'Operazione cloud scaduta.'));
+      }, ms);
+      Promise.resolve(promise).then(function (value) {
+        clearTimeout(timer);
+        resolve(value);
+      }, function (error) {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+  }
+
   function firebaseState() {
     return window.IGFTFirebase || null;
   }
@@ -328,15 +344,28 @@
   async function saveAnalysis(report) {
     var normalized = normalizeReport(report);
 
+    // Salvataggio locale immediato: lo storico non deve mai dipendere dal cloud.
+    var local = saveLocalAnalysis(newId(), normalized);
+    notify();
+
     if (isCloud()) {
       try {
-        var saved = await saveCloudAnalysis(null, normalized);
-        await refreshCloudAnalyses();
+        var saved = await withTimeout(
+          saveCloudAnalysis(local ? local.id : null, normalized),
+          12000,
+          'Sincronizzazione cloud troppo lenta.'
+        );
+        await withTimeout(refreshCloudAnalyses(), 8000, 'Lettura dello storico cloud troppo lenta.');
+        state.cloudError = null;
         notify();
-        return saved;
+        return {
+          id: saved.id,
+          summary: normalized.summary,
+          storage: 'cloud'
+        };
       } catch (error) {
         state.cloudError = errorMessage(error);
-        console.warn('[IGFT] salvataggio cloud non riuscito, uso locale', error);
+        console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale', error);
         state.storage = 'local-fallback';
         if (state.user) {
           try {
@@ -347,11 +376,10 @@
           }
         }
         notify();
+        if (local) return { id: local.id, summary: local.summary, storage: 'local-fallback' };
       }
     }
 
-    var local = saveLocalAnalysis(newId(), normalized);
-    notify();
     return local;
   }
 
@@ -509,10 +537,10 @@
 
     if (isCloud()) {
       try {
-        await userDoc().collection('deactivated').doc(normalized).set({
+        await withTimeout(userDoc().collection('deactivated').doc(normalized).set({
           username: normalized,
           markedAt: firebaseState().serverTimestamp()
-        });
+        }), 8000, 'Sincronizzazione del profilo troppo lenta.');
         return { synced: true };
       } catch (error) {
         state.cloudError = errorMessage(error);
@@ -532,7 +560,7 @@
 
     if (isCloud()) {
       try {
-        await userDoc().collection('deactivated').doc(normalized).delete();
+        await withTimeout(userDoc().collection('deactivated').doc(normalized).delete(), 8000, 'Sincronizzazione del profilo troppo lenta.');
         return { synced: true };
       } catch (error) {
         state.cloudError = errorMessage(error);
@@ -639,9 +667,9 @@
     notify();
 
     try {
-      await mergeDeactivatedIntoCloud(user.uid);
-      await migrateLocalAnalyses(user.uid);
-      await refreshCloudAnalyses();
+      await withTimeout(mergeDeactivatedIntoCloud(user.uid), 10000, 'Sincronizzazione profili disattivati troppo lenta.');
+      await withTimeout(migrateLocalAnalyses(user.uid), 12000, 'Migrazione analisi troppo lenta.');
+      await withTimeout(refreshCloudAnalyses(), 8000, 'Lettura dello storico cloud troppo lenta.');
       state.cloudError = null;
     } catch (error) {
       state.cloudError = errorMessage(error);

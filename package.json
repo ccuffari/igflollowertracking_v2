@@ -4,6 +4,6 @@
   "private": true,
   "description": "Instagram Follower Tracker — web app statica su Firebase Hosting con account facoltativo",
   "scripts": {
-    "test": "node --test tests/analysis-core.test.cjs"
+    "test": "node --test tests/"
   }
 }

@@ -10,12 +10,12 @@ La web app resta statica: **nessun backend custom**, solo Firebase Authenticatio
 | Firebase Hosting | Serving dei file statici in `public/` |
 | Firebase Authentication | Registrazione/login email-password e Google (facoltativi) |
 | Cloud Firestore | Storico analisi, profili disattivati, impostazioni per utente |
-| localStorage | Modalità ospite e cache locale dei profili disattivati |
+| localStorage | Modalità ospite e cache locale di analisi e profili disattivati (salvataggio locale immediato) |
 
 La configurazione web viene letta a runtime da `/__/firebase/init.json`, endpoint riservato
 di Firebase Hosting: **nessuna chiave o configurazione hardcodata nel repository**.
 Se l'endpoint non è disponibile (file locale, server statico generico) l'app resta in
-modalità ospite e mostra l'avviso nell'interfaccia di accesso.
+modalità ospite e la pagina `login.html` mostra l'avviso con il link per continuare come ospite.
 
 ## Prerequisiti
 
@@ -80,7 +80,7 @@ Opzioni per provare il branch:
 
 - **Preview channel** (richiede piano Blaze):
   ```bash
-  firebase hosting:channel:deploy dev --expires 30d
+  firebase hosting:channel:deploy dev --project igfollowertracking-v2 --expires 14d
   ```
 - **Emulatori locali** (consigliato, nessun costo):
   ```bash
@@ -102,7 +102,7 @@ window.IGFT_FIREBASE_CONFIG = {
 };
 ```
 
-e includerlo in `index.html` prima di `scripts/firebase-init.js`.
+e includerlo sia in `index.html` sia in `login.html`, prima di `scripts/firebase-init.js`.
 In alternativa, da console del browser:
 
 ```js
