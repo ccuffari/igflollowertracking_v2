@@ -105,17 +105,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const saved = await Store.saveAnalysis(report);
       if (seq !== analysisSeq) return;
 
-      if (!saved) {
-        currentSaveNote = { text: 'Salvataggio dell\'analisi non riuscito.', kind: 'error', showHistory: true };
-      } else {
-        currentSaveNote = {
-          text: saved.storage === 'cloud'
-            ? 'Analisi salvata su Firestore.'
-            : 'Analisi in coda: verrà sincronizzata su Firestore appena possibile.',
-          kind: 'success',
-          showHistory: true
-        };
-      }
+      currentSaveNote = saved
+        ? null
+        : { text: 'Salvataggio dell\'analisi non riuscito.', kind: 'error', showHistory: true };
     } catch (error) {
       if (seq !== analysisSeq) return;
       currentSaveNote = {
@@ -303,10 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
       ? '<div class="res-note res-note--info">Salvataggio automatico disattivato.<button type="button" onclick="window.IGFTSaveCurrentAnalysis()">Salva questa analisi</button></div>'
       : '';
 
-    const removedNoteHtml = currentRemovedDeactivatedCount > 0
-      ? `<div class="res-note res-note--deactivated">♻️ <strong>${currentRemovedDeactivatedCount}</strong> ${currentRemovedDeactivatedCount === 1 ? 'profilo disattivato è stato escluso' : 'profili disattivati sono stati esclusi'} automaticamente da questa analisi.</div>`
-      : '';
-
     const paginationControls = totalPages > 1 ? `
       <div class="res-pagination">
         <button type="button" class="res-page-btn" onclick="window.updateResultsPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>← Precedente</button>
@@ -322,7 +310,6 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="res-wrap">
         ${saveNoteHtml}
         ${manualSaveHtml}
-        ${removedNoteHtml}
 
         <div class="res-card">
           <div class="res-stats">
@@ -403,7 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const wasMarked = window.IGFTStore.isDeactivated(username);
       const result = await window.IGFTStore.toggleDeactivated(username);
       if (result && result.synced === false) {
-        notifyUser('Salvato in coda: sincronizzazione con Firestore non disponibile, riproveremo automaticamente.', 'error');
+        notifyUser('Salvato in coda: sincronizzazione non disponibile, riproveremo automaticamente.', 'error');
       } else {
         notifyUser(
           wasMarked
@@ -430,15 +417,9 @@ document.addEventListener('DOMContentLoaded', function() {
         notFollowing: currentNotFollowingBack.slice(),
         removedDeactivatedCount: currentRemovedDeactivatedCount
       });
-      currentSaveNote = {
-        text: saved
-          ? (saved.storage === 'cloud'
-            ? 'Analisi salvata su Firestore.'
-            : 'Analisi in coda: verrà sincronizzata su Firestore appena possibile.')
-          : 'Salvataggio dell\'analisi non riuscito.',
-        kind: saved ? 'success' : 'error',
-        showHistory: true
-      };
+      currentSaveNote = saved
+        ? null
+        : { text: 'Salvataggio dell\'analisi non riuscito.', kind: 'error', showHistory: true };
     } catch (error) {
       currentSaveNote = {
         text: 'Salvataggio dell\'analisi non riuscito: ' + (error.message || 'errore sconosciuto'),

@@ -5,8 +5,8 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="scripts/lib/extension-noise.js?v=2.7.0"></script>
-  <script src="scripts/extension-guard.js?v=2.7.0"></script>
+  <script src="scripts/lib/extension-noise.js?v=2.7.1"></script>
+  <script src="scripts/extension-guard.js?v=2.7.1"></script>
   <title>Instagram Follower Tracker - Scopri Chi Non Ti Segue</title>
   <meta name="description" content="Scopri chi non ti segue più su Instagram. Carica il tuo file ZIP esportato e ottieni l'analisi istantanea. Privacy garantita, completamente gratuito.">
 
@@ -25,18 +25,18 @@
   <meta property="twitter:title" content="Instagram Follower Tracker - Scopri Chi Non Ti Segue">
   <meta property="twitter:description" content="Scopri chi non ti segue più su Instagram. Analisi gratuita e sicura.">
 
-  <link rel="stylesheet" href="css/00-variables.css?v=2.7.0">
-  <link rel="stylesheet" href="css/01-base.css?v=2.7.0">
-  <link rel="stylesheet" href="css/02-layout.css?v=2.7.0">
-  <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.0">
-  <link rel="stylesheet" href="css/04-components.css?v=2.7.0">
-  <link rel="stylesheet" href="css/05-ads.css?v=2.7.0">
-  <link rel="stylesheet" href="css/06-results.css?v=2.7.0">
-  <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.0">
-  <link rel="stylesheet" href="css/08-responsive.css?v=2.7.0">
-  <link rel="stylesheet" href="css/09-auth.css?v=2.7.0">
-  <link rel="stylesheet" href="css/general.css?v=2.7.0">
-  <link rel="stylesheet" href="css/10-theme.css?v=2.7.0">
+  <link rel="stylesheet" href="css/00-variables.css?v=2.7.1">
+  <link rel="stylesheet" href="css/01-base.css?v=2.7.1">
+  <link rel="stylesheet" href="css/02-layout.css?v=2.7.1">
+  <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.1">
+  <link rel="stylesheet" href="css/04-components.css?v=2.7.1">
+  <link rel="stylesheet" href="css/05-ads.css?v=2.7.1">
+  <link rel="stylesheet" href="css/06-results.css?v=2.7.1">
+  <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.1">
+  <link rel="stylesheet" href="css/08-responsive.css?v=2.7.1">
+  <link rel="stylesheet" href="css/09-auth.css?v=2.7.1">
+  <link rel="stylesheet" href="css/general.css?v=2.7.1">
+  <link rel="stylesheet" href="css/10-theme.css?v=2.7.1">
 </head>
 
 <body itemscope itemtype="https://schema.org/WebPage">
@@ -77,13 +77,17 @@
           </div>
 
           <details class="guide">
-            <summary>Come scaricare il file da Instagram</summary>
+            <summary>Come esportare i dati da Instagram</summary>
             <div class="guide__body">
               <ol>
-                <li>Apri Instagram → <strong>Impostazioni e privacy</strong>.</li>
-                <li>Vai su <strong>Centro per la privacy → Scarica le tue informazioni</strong>.</li>
-                <li>Seleziona solo <strong>Followers e following</strong>, intervallo <strong>Dall'inizio</strong>, formato <strong>JSON</strong>.</li>
-                <li>Crea l'export, scarica lo ZIP e caricalo qui sopra.</li>
+                <li>Apri Instagram → <strong>Impostazioni e attività</strong> → <strong>Account Meta</strong> → <strong>Le tue informazioni e autorizzazioni</strong> → <strong>Esporta le tue informazioni</strong>.</li>
+                <li>Seleziona <strong>Crea esportazione</strong> e scegli il tuo profilo Instagram.</li>
+                <li>Scegli <strong>Esporta sul dispositivo</strong>.</li>
+                <li>In <strong>Personalizza le tue informazioni</strong> seleziona solo <strong>Follower e persone/Pagine seguite</strong>.</li>
+                <li>In <strong>Intervalli di date</strong> seleziona <strong>Sempre</strong>.</li>
+                <li>In <strong>Formato</strong> seleziona <strong>JSON</strong>.</li>
+                <li>In <strong>Qualità dei contenuti multimediali</strong> seleziona <strong>High</strong>.</li>
+                <li>Avvia l'esportazione, scarica il file ZIP e caricalo qui sopra.</li>
               </ol>
             </div>
           </details>
@@ -120,13 +124,13 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-  <script defer src="scripts/lib/analysis-core.js?v=2.7.0"></script>
-  <script defer src="scripts/lib/crypto.js?v=2.7.0"></script>
-  <script defer src="scripts/lib/vault.js?v=2.7.0"></script>
-  <script defer src="scripts/firebase-init.js?v=2.7.0"></script>
-  <script defer src="scripts/store.js?v=2.7.0"></script>
-  <script defer src="scripts/auth-ui.js?v=2.7.0"></script>
-  <script defer src="scripts/app.js?v=2.7.0"></script>
+  <script defer src="scripts/lib/analysis-core.js?v=2.7.1"></script>
+  <script defer src="scripts/lib/crypto.js?v=2.7.1"></script>
+  <script defer src="scripts/lib/vault.js?v=2.7.1"></script>
+  <script defer src="scripts/firebase-init.js?v=2.7.1"></script>
+  <script defer src="scripts/store.js?v=2.7.1"></script>
+  <script defer src="scripts/auth-ui.js?v=2.7.1"></script>
+  <script defer src="scripts/app.js?v=2.7.1"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
