@@ -14,11 +14,15 @@
  *   users/{uid}/analyses/{id}            -> metadati CIFRATI dell'analisi
  *   users/{uid}/analyses/{id}/items/*    -> chunk di username CIFRATI
  *
- * Zero-knowledge: analisi e profili disattivati sono cifrati nel browser con
- * AES-GCM tramite la chiave derivata dalla password di accesso dell'utente
- * (per gli account Google, che non espongono una password, da una password di
- * cifratura dedicata) (`public/scripts/lib/crypto.js` + `vault.js`). Firestore
- * non contiene mai username in chiaro e la piattaforma non possiede la chiave.
+ * Cifratura sempre attiva, automatica:
+ *   - account email/password: la chiave è derivata dalla password di accesso
+ *     (zero-knowledge: il server non vede mai la password);
+ *   - account Google, che non espongono una password: la DEK è protetta da un
+ *     segreto casuale gestito dall'app e salvato insieme al record avvolto, così
+ *     l'apertura è automatica su ogni dispositivo senza chiedere nulla.
+ * Analisi e profili disattivati vengono cifrati nel browser con AES-GCM
+ * (`public/scripts/lib/crypto.js` + `vault.js`) prima di essere scritti su
+ * Firestore. Firestore non contiene mai username in chiaro.
  * Restano in chiaro solo i metadati indispensabili all'ordinamento (timestamp
  * di creazione, ID documento, numero di documenti).
  *
@@ -248,9 +252,11 @@
     return 'La cifratura non è disponibile in questo browser: i dati restano solo su questo dispositivo.';
   }
 
-  // Gli account email/password possono usare direttamente la password di
-  // accesso come segreto di cifratura. Gli account Google non espongono una
-  // password: per loro serve una password di cifratura dedicata.
+  // Gli account email/password usano la password di accesso come chiave.
+  // Gli account Google non espongono una password: usano un segreto casuale
+  // gestito dall'app (campo `autoSecret` nel record keyVault) e vengono
+  // sbloccati automaticamente. I record creati dalle versioni precedenti
+  // (senza `autoSecret`) restano apribili con la vecchia password di cifratura.
   function accountUsesPassword(user) {
     var providers = (user && user.providerData) || [];
     for (var i = 0; i < providers.length; i++) {
@@ -260,7 +266,103 @@
   }
 
   function vaultSecretKind() {
-    return state.user && accountUsesPassword(state.user) ? 'password' : 'passphrase';
+    if (!state.user) return 'none';
+    if (accountUsesPassword(state.user)) return 'password';
+    if (state.vaultRecord && !state.vaultRecord.autoSecret) return 'passphrase';
+    return 'managed';
+  }
+
+  function isAutomaticAccount(user) {
+    return !!user && !accountUsesPassword(user);
+  }
+
+  // Crea o apre la cassaforte degli account Google senza interazione: il
+  // segreto che avvolge la DEK è generato dall'app e salvato nel profilo,
+  // quindi ogni dispositivo può decifrare automaticamente.
+  async function ensureAutomaticVault() {
+    if (!state.user || !isAutomaticAccount(state.user)) return { ok: false, auto: false };
+    if (!cryptoSupported()) return { ok: false, auto: true, error: vaultUnsupportedError() };
+    if (!hasCloud()) return { ok: false, auto: true };
+    if (vaultUnlocked()) return { ok: true, auto: true };
+    if (!state.profileLoaded) {
+      try {
+        await readCloudProfile();
+      } catch (error) {
+        return { ok: false, auto: true, error: errorMessage(error) };
+      }
+    }
+    if (!state.user) return { ok: false, auto: true };
+    if (vaultUnlocked()) return { ok: true, auto: true };
+
+    if (state.vaultRecord) {
+      if (!state.vaultRecord.autoSecret) {
+        // Cassaforte legacy: serve una sola volta la vecchia password di
+        // cifratura per migrarla all'apertura automatica.
+        updateVaultState();
+        return { ok: false, auto: true, legacy: true };
+      }
+      try {
+        await Vault.unlock(state.vaultRecord, state.vaultRecord.autoSecret);
+        state.vaultState = 'unlocked';
+        state.vaultError = null;
+        notify();
+        return { ok: true, auto: true };
+      } catch (error) {
+        state.vaultError = 'Impossibile aprire la cifratura automatica: effettua di nuovo l\'accesso.';
+        updateVaultState();
+        notify();
+        return { ok: false, auto: true, error: state.vaultError };
+      }
+    }
+
+    try {
+      var secret = Crypto.randomSecret();
+      var record = await Vault.create(secret);
+      record.autoSecret = secret;
+      await withTimeout(
+        userDoc().set({ keyVault: record, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
+        12000,
+        'Salvataggio della chiave su Firestore troppo lento.'
+      );
+      state.vaultRecord = record;
+      state.vaultState = 'unlocked';
+      state.vaultError = null;
+      notify();
+      syncCloudInBackground(state.user.uid, true);
+      return { ok: true, auto: true, created: true };
+    } catch (error) {
+      if (Vault && typeof Vault.lock === 'function') {
+        try { await Vault.lock(); } catch (lockError) { /* non bloccante */ }
+      }
+      state.vaultRecord = null;
+      state.vaultState = cryptoSupported() ? 'absent' : 'unsupported';
+      state.vaultError = errorMessage(error);
+      notify();
+      return { ok: false, auto: true, error: state.vaultError };
+    }
+  }
+
+  // Migra una cassaforte legacy (password di cifratura scelta dall'utente) al
+  // segreto gestito dall'app, mantenendo la stessa DEK: i dati restano leggibili
+  // e i prossimi accessi non richiedono nulla.
+  async function migrateLegacyVaultToAutomatic() {
+    if (!state.user || !isAutomaticAccount(state.user) || !state.vaultRecord) return { ok: false };
+    if (state.vaultRecord.autoSecret) return { ok: true };
+    try {
+      var secret = Crypto.randomSecret();
+      var record = await Crypto.rewrapVault(vaultKeys().dek, secret);
+      record.autoSecret = secret;
+      await withTimeout(
+        userDoc().set({ keyVault: record, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
+        12000,
+        'Aggiornamento della chiave su Firestore troppo lento.'
+      );
+      state.vaultRecord = record;
+      updateVaultState();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) };
+    }
   }
 
   // Verifica la password dell'account prima di usarla come chiave: evita di
@@ -1349,9 +1451,13 @@
     if (!doc) return null;
     var snapshot = await withTimeout(doc.get(), 12000, 'Lettura profilo da Firestore troppo lenta.');
     var data = snapshot && snapshot.exists ? (snapshot.data() || {}) : {};
-    // Non sovrascrivere con `null` una cassaforte appena creata in locale: una
-    // lettura partita prima della scrittura potrebbe tornare con dati vecchi.
-    state.vaultRecord = data.keyVault || state.vaultRecord || null;
+    var fromCloud = data.keyVault || null;
+    // Non sovrascrivere con una lettura più vecchia una cassaforte appena
+    // creata o migrata a `autoSecret` in locale.
+    if (state.vaultRecord && state.vaultRecord.autoSecret && fromCloud && !fromCloud.autoSecret) {
+      fromCloud = state.vaultRecord;
+    }
+    state.vaultRecord = fromCloud || state.vaultRecord || null;
     state.profileLoaded = true;
     updateVaultState();
     return data;
@@ -1386,6 +1492,8 @@
     // Se il login ha fornito la password (o la frase Google), la usiamo subito
     // per aprire la cassaforte senza chiedere nulla in più all'utente.
     await applyPendingVaultSecret();
+    // Account Google: cassaforte creata e aperta automaticamente.
+    await ensureAutomaticVault();
     updateVaultState();
 
     state.storage = 'cloud';
@@ -1418,6 +1526,8 @@
         // La password del login può essere arrivata dopo l'avvio del sync:
         // applicala ora che il record `keyVault` è disponibile.
         await applyPendingVaultSecret();
+        // Account Google: apertura automatica (o creazione) della cassaforte.
+        await ensureAutomaticVault();
         if (guard()) {
           state.cloudError = null;
           state.storage = 'cloud';
@@ -1568,11 +1678,11 @@
     return state.storage === 'cloud';
   }
 
-  /* ======================= CIFRATURA (ZERO-KNOWLEDGE) ======================= */
+  /* ==================== CIFRATURA (AUTOMATICA) ==================== */
 
-  // Fornisce il segreto del login (password dell'account per gli account
-  // email/password, password di cifratura per gli account Google). Resta solo
-  // in memoria finché il profilo con `keyVault` non è disponibile.
+  // Fornisce la password di accesso degli account email/password. Gli account
+  // Google non passano da qui: usano `ensureAutomaticVault`. Il segreto resta
+  // solo in memoria finché il profilo con `keyVault` non è disponibile.
   async function provideVaultSecret(secret, options) {
     var value = String(secret == null ? '' : secret);
     if (!value) return { ok: false, error: 'Inserisci la password.' };
@@ -1653,6 +1763,7 @@
     var record;
     try {
       record = await Vault.create(value);
+      if (kind === 'managed') record.autoSecret = value;
       await withTimeout(
         userDoc().set({ keyVault: record, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
         12000,
@@ -1696,6 +1807,11 @@
       await Vault.unlock(state.vaultRecord, value);
       state.vaultState = 'unlocked';
       state.vaultError = null;
+      // Le vecchie cassette Google protette da una password scelta dall'utente
+      // vengono convertite al segreto gestito: i prossimi accessi sono automatici.
+      if (isAutomaticAccount(state.user) && state.vaultRecord && !state.vaultRecord.autoSecret) {
+        await migrateLegacyVaultToAutomatic();
+      }
       notify();
       syncCloudInBackground(state.user.uid, true);
       return { ok: true };
@@ -1893,7 +2009,9 @@
       vaultSecretKind: vaultSecretKind(),
       vaultSource: Vault && typeof Vault.getSource === 'function' ? Vault.getSource() : null,
       vaultError: state.vaultError,
-      encryption: state.vaultState === 'unlocked' ? 'zero-knowledge' : 'pending'
+      encryption: state.vaultState === 'unlocked'
+        ? (vaultSecretKind() === 'password' ? 'zero-knowledge' : 'managed')
+        : 'pending'
     };
   }
 

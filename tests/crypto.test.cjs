@@ -126,3 +126,12 @@ test('frasi suggerite e robustezza', async () => {
   assert.equal(Crypto.passphraseStrength('corta'), 'weak');
   assert.equal(Crypto.passphraseStrength('frase-lunga-e-complessa-123'), 'strong');
 });
+
+test('segreto automatico: 32 byte casuali, sempre diverso', async () => {
+  const Crypto = createCrypto();
+  const first = Crypto.randomSecret();
+  const second = Crypto.randomSecret();
+  assert.notEqual(first, second);
+  assert.equal(typeof first, 'string');
+  assert.ok(first.length >= 43, 'deve contenere 32 byte in base64');
+});

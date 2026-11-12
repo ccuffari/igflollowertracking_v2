@@ -4,11 +4,16 @@ rules_version = '2';
 //
 // Each authenticated user can read and write only their own data.
 //
-// Zero-knowledge: analysis data and deactivated profiles are encrypted in the
-// browser before being written. The server only sees opaque ciphertext.
+// Encrypted at rest: analysis data and deactivated profiles are encrypted in
+// the browser before being written. The server only sees opaque ciphertext.
 //   users/{uid}                          -> profile (email, displayName),
 //                                           settings and the *wrapped* key
-//                                           record (keyVault). No plaintext key.
+//                                           record (keyVault). For email/password
+//                                           accounts the key is derived from the
+//                                           account password (zero-knowledge); for
+//                                           Google accounts the record also holds
+//                                           the app-managed `autoSecret` so the
+//                                           vault opens automatically.
 //   users/{uid}/deactivated/{docId}      -> { enc } with docId = HMAC(username)
 //   users/{uid}/analyses/{id}            -> { createdAt, enc }
 //   users/{uid}/analyses/{id}/items/*    -> { enc }
@@ -28,7 +33,7 @@ service cloud.firestore {
 
     function validKeyVault(vault) {
       return vault is map
-        && vault.keys().hasOnly(['v', 'kdf', 'iterations', 'salt', 'iv', 'wrappedKey'])
+        && vault.keys().hasOnly(['v', 'kdf', 'iterations', 'salt', 'iv', 'wrappedKey', 'autoSecret'])
         && vault.v == 1
         && vault.kdf == 'PBKDF2-SHA256'
         && vault.iterations is int
@@ -42,7 +47,11 @@ service cloud.firestore {
         && vault.iv.size() <= 256
         && vault.wrappedKey is string
         && vault.wrappedKey.size() > 0
-        && vault.wrappedKey.size() <= 1024;
+        && vault.wrappedKey.size() <= 1024
+        && (!('autoSecret' in vault)
+          || (vault.autoSecret is string
+            && vault.autoSecret.size() >= 16
+            && vault.autoSecret.size() <= 512));
     }
 
     match /users/{uid} {

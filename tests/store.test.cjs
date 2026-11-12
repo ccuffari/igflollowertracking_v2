@@ -117,7 +117,7 @@ test('saveAnalysis resta locale se Firestore non è raggiungibile', async () => 
     db: failingDb,
     auth: {
       onAuthStateChanged(callback) {
-        callback({ uid: 'user-1', email: 'test@example.com' });
+        callback({ uid: 'user-1', email: 'test@example.com', providerData: [{ providerId: 'password' }] });
       }
     },
     serverTimestamp() { return new Date(); }
@@ -174,7 +174,7 @@ test('senza frase di sicurezza il profilo resta cloud e i dati sensibili non ven
     },
     auth: {
       onAuthStateChanged(callback) {
-        callback({ uid: 'user-1', email: 'test@example.com' });
+        callback({ uid: 'user-1', email: 'test@example.com', providerData: [{ providerId: 'password' }] });
       }
     },
     serverTimestamp() { return new Date(); }
@@ -231,7 +231,7 @@ test('logout e login conservano storico e disattivati quando Firestore non è di
   await store.markDeactivated('ghost');
   await store.saveAnalysis(report);
 
-  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com' });
+  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com', providerData: [{ providerId: 'password' }] });
   await new Promise((resolve) => setTimeout(resolve, 40));
 
   await store.markDeactivated('solo_account');
@@ -240,7 +240,7 @@ test('logout e login conservano storico e disattivati quando Firestore non è di
   firebase.auth.callback(null);
   await new Promise((resolve) => setTimeout(resolve, 10));
 
-  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com' });
+  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com', providerData: [{ providerId: 'password' }] });
   await new Promise((resolve) => setTimeout(resolve, 40));
 
   const analyses = await store.listAnalyses();
@@ -279,7 +279,7 @@ test('i timeout cloud restano informativi e non degradano la sessione', async ()
     },
     auth: {
       onAuthStateChanged(callback) {
-        callback({ uid: 'user-1', email: 'test@example.com' });
+        callback({ uid: 'user-1', email: 'test@example.com', providerData: [{ providerId: 'password' }] });
       }
     },
     serverTimestamp() { return new Date(); }
@@ -444,7 +444,7 @@ function fakeFirebase(fake) {
     db: fake.db,
     auth: {
       onAuthStateChanged(callback) {
-        callback({ uid: 'user-1', email: 'tester@example.com', displayName: 'Tester' });
+        callback({ uid: 'user-1', email: 'tester@example.com', displayName: 'Tester', providerData: [{ providerId: 'password' }] });
       }
     },
     serverTimestamp() { return new Date(); }
@@ -679,4 +679,89 @@ test('senza cifratura attiva non viene scritto nessun dato sensibile in chiaro',
   const list = await store.listAnalyses();
   assert.equal(list.length, 1);
   assert.ok(store.listDeactivated().some((item) => item.username === 'ghost'));
+});
+
+const GOOGLE_USER = {
+  uid: 'user-1',
+  email: 'tester@example.com',
+  displayName: 'Tester',
+  providerData: [{ providerId: 'google.com' }]
+};
+
+function googleFirebase(fake) {
+  return {
+    ready: Promise.resolve(),
+    available: true,
+    db: fake.db,
+    auth: {
+      currentUser: GOOGLE_USER,
+      onAuthStateChanged(callback) { callback(GOOGLE_USER); }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+}
+
+test('gli account Google ricevono una cassaforte automatica, senza chiedere nulla', async () => {
+  const fake = createFakeFirestore();
+  const first = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
+  await first.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  const status = first.store.getStatus();
+  assert.equal(status.vaultSecretKind, 'managed');
+  assert.equal(status.vaultState, 'unlocked');
+  assert.equal(status.encryption, 'managed');
+
+  const profile = fake.collections.get('users').get('user-1');
+  assert.ok(profile && profile.keyVault, 'il record keyVault deve essere creato in automatico');
+  assert.ok(profile.keyVault.autoSecret, 'il segreto gestito dall\'app deve essere presente');
+  assert.ok(!JSON.stringify(profile.keyVault).includes('Password'));
+
+  const saved = await first.store.saveAnalysis(report);
+  assert.equal(saved.storage, 'cloud');
+  const analysisDoc = fake.collections.get('users/user-1/analyses').get(saved.id);
+  assert.equal(typeof analysisDoc.enc, 'string');
+  assert.ok(!JSON.stringify(analysisDoc).includes('alice'));
+
+  // Nuovo dispositivo: stessa cassaforte, apertura automatica senza interazione.
+  const second = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
+  await second.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.equal(second.store.getStatus().vaultState, 'unlocked');
+  const analyses = await second.store.listAnalyses();
+  assert.equal(analyses.length, 1);
+});
+
+test('le vecchie cassette Google vengono migrate all\'apertura automatica', async () => {
+  const fake = createFakeFirestore();
+  const helper = createStore();
+  const legacy = await helper.context.IGFTCrypto.createVault(PASSPHRASE);
+  fake.seed(['users'], 'user-1', {
+    email: GOOGLE_USER.email,
+    displayName: GOOGLE_USER.displayName,
+    keyVault: legacy.record
+  });
+
+  const { store } = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  assert.equal(store.getStatus().vaultSecretKind, 'passphrase');
+  assert.equal(store.getStatus().vaultState, 'locked');
+
+  const unlocked = await store.unlockVault(PASSPHRASE);
+  assert.equal(unlocked.ok, true, unlocked.error || 'sblocco legacy fallito');
+  assert.equal(store.getStatus().vaultSecretKind, 'managed');
+  assert.equal(store.getStatus().vaultState, 'unlocked');
+
+  const profile = fake.collections.get('users').get('user-1');
+  assert.ok(profile.keyVault.autoSecret, 'la cassaforte legacy deve essere convertita');
+  assert.notEqual(profile.keyVault.wrappedKey, legacy.record.wrappedKey);
+
+  // Dopo la migrazione il nuovo dispositivo non chiede nulla.
+  const second = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
+  await second.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.equal(second.store.getStatus().vaultSecretKind, 'managed');
+  assert.equal(second.store.getStatus().vaultState, 'unlocked');
 });

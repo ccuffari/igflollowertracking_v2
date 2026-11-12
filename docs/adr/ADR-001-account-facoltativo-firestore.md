@@ -4,7 +4,7 @@
 - **Data:** 2026-11-12
 - **Contesto:** branch `dev` di Instagram Follower Tracker (web app statica su Firebase Hosting)
 - **Owner:** CTO
-- **Aggiornamento:** il modello dati su Firestore è stato reso zero-knowledge da
+- **Aggiornamento:** il modello dati su Firestore è stato reso cifrato e automatico da
   [ADR-002](ADR-002-zero-knowledge-cifratura.md): analisi e profili disattivati sono cifrati
   nel browser e il database non contiene username in chiaro.
 

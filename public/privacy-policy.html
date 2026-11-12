@@ -4,19 +4,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script src="scripts/lib/extension-noise.js?v=2.6.0"></script>
-    <script src="scripts/extension-guard.js?v=2.6.0"></script>
+    <script src="scripts/lib/extension-noise.js?v=2.7.0"></script>
+    <script src="scripts/extension-guard.js?v=2.7.0"></script>
     <title>Privacy Policy - Instagram Follower Tracker</title>
     <meta name="description" content="Informativa privacy. Titolare: persona fisica. Trattamento dati ai sensi GDPR.">
-    <link rel="stylesheet" href="css/00-variables.css?v=2.6.0">
-    <link rel="stylesheet" href="css/01-base.css?v=2.6.0">
-    <link rel="stylesheet" href="css/02-layout.css?v=2.6.0">
-    <link rel="stylesheet" href="css/03-header-lead.css?v=2.6.0">
-    <link rel="stylesheet" href="css/04-components.css?v=2.6.0">
-    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.6.0">
-    <link rel="stylesheet" href="css/general.css?v=2.6.0">
-    <link rel="stylesheet" href="css/10-theme.css?v=2.6.0">
-    <link rel="stylesheet" href="css/12-legal.css?v=2.6.0">
+    <link rel="stylesheet" href="css/00-variables.css?v=2.7.0">
+    <link rel="stylesheet" href="css/01-base.css?v=2.7.0">
+    <link rel="stylesheet" href="css/02-layout.css?v=2.7.0">
+    <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.0">
+    <link rel="stylesheet" href="css/04-components.css?v=2.7.0">
+    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.0">
+    <link rel="stylesheet" href="css/general.css?v=2.7.0">
+    <link rel="stylesheet" href="css/10-theme.css?v=2.7.0">
+    <link rel="stylesheet" href="css/12-legal.css?v=2.7.0">
 </head>
 
 <body>
@@ -118,18 +118,19 @@
                     Questi profili vengono esclusi automaticamente dalle analisi successive.</li>
                 <li><strong>Impostazioni</strong>: preferenza sul salvataggio automatico delle analisi.</li>
             </ul>
-            <p><strong>Cifratura end-to-end (zero-knowledge).</strong> Il contenuto delle analisi e l'elenco dei
-                profili disattivati vengono cifrati sul dispositivo con AES-GCM usando una chiave casuale protetta
-                dalla <em>password dell'account</em>: la chiave di cifratura viene derivata dalla password nel browser
-                (PBKDF2) e la password non viene mai trasmessa ai server né salvata in chiaro. Il gestore della
-                piattaforma e chi amministra il database non possono leggere i dati. Nel database restano visibili solo
-                l'email/nome del profilo, il record della chiave cifrata e i metadati minimi necessari all'ordinamento
-                (data dell'analisi e identificativi dei documenti). Per gli account creati con Google, che non
-                forniscono una password, viene chiesta una password di cifratura dedicata.</p>
-            <p>Se la password viene dimenticata, i dati cifrati non possono essere decifrati da nessuno, nemmeno
-                dall'assistenza: la reimpostazione della password via email consente di rientrare nell'account ma non
-                recupera i dati cifrati con la vecchia password. La password di cifratura degli account Google può
-                essere cambiata dall'area personale senza perdere i dati.</p>
+            <p><strong>Cifratura automatica dei contenuti.</strong> Il contenuto delle analisi e l'elenco dei
+                profili disattivati vengono cifrati sul dispositivo con AES-GCM usando una chiave casuale per
+                utente. Per gli account email/password la chiave è protetta dalla <em>password dell'account</em>:
+                viene derivata nel browser (PBKDF2) e la password non viene mai trasmessa ai server né salvata in
+                chiaro (zero-knowledge). Per gli account creati con Google, che non forniscono una password, la
+                chiave è gestita automaticamente dall'app e conservata insieme al record cifrato: i dati nel
+                database restano cifrati e non vengono mai salvati in chiaro, ma questa modalità non è
+                zero-knowledge in senso stretto. In nessun caso è richiesta all'utente un'attivazione manuale.
+                Nel database restano visibili solo l'email/nome del profilo, il record della chiave cifrata e i
+                metadati minimi necessari all'ordinamento (data dell'analisi e identificativi dei documenti).</p>
+            <p>Per gli account email/password, se la password viene dimenticata i dati cifrati non possono essere
+                decifrati da nessuno, nemmeno dall'assistenza: la reimpostazione della password via email consente
+                di rientrare nell'account ma non recupera i dati cifrati con la vecchia password.</p>
             <p>I dati sono memorizzati nel database Cloud Firestore predefinito del progetto Firebase, nella regione
                 scelta alla creazione del database, e sono accessibili solo all'utente autenticato tramite regole di
                 sicurezza. Firestore è la fonte di verità: analisi e profili disattivati vengono salvati e riletti dal

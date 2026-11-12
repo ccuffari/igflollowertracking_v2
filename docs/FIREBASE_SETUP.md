@@ -177,16 +177,17 @@ disattivati vengono scritti e riletti dal database, mentre localStorage resta so
 per l'uso offline. Le modifiche salvate senza rete vengono inviate automaticamente al
 ripristino della connessione (con backoff).
 
-## 10. Cifratura zero-knowledge
+## 10. Cifratura automatica
 
 Analisi e profili disattivati non vengono mai scritti in chiaro su Firestore. La cifratura è
-interamente lato client (Web Crypto API) e non richiede servizi aggiuntivi.
+interamente lato client (Web Crypto API), è attiva per impostazione predefinita e non richiede
+servizi aggiuntivi né azioni dell'utente.
 
 ### Schema
 
 | Elemento | Dove | Contenuto |
 | --- | --- | --- |
-| `users/{uid}.keyVault` | Firestore | `{v, kdf, iterations, salt, iv, wrappedKey}`: DEK avvolta con la KEK derivata dalla password dell'account (o dalla password di cifratura per gli account Google) |
+| `users/{uid}.keyVault` | Firestore | `{v, kdf, iterations, salt, iv, wrappedKey}` (+ `autoSecret` per gli account Google): DEK avvolta con la KEK |
 | `users/{uid}/analyses/{id}` | Firestore | `{createdAt, enc}` |
 | `users/{uid}/analyses/{id}/items/chunk-NNN` | Firestore | `{enc}` (array di username cifrato) |
 | `users/{uid}/deactivated/{docId}` | Firestore | `{enc}` con `docId = HMAC-SHA256(username)` |
@@ -197,16 +198,16 @@ KEK; HKDF-SHA256 per la chiave di deduplicazione. Dettagli e trade-off in
 
 ### Flusso utente
 
-1. Alla registrazione (email/password, minimo 12 caratteri) e a ogni login l'app usa **la
-   password dell'account** per creare o sbloccare la cassaforte: nessuna frase aggiuntiva.
-2. La pagina di login esegue l'operazione prima del redirect e salva la chiave in IndexedDB
-   come `CryptoKey` non estraibile; "Blocca i dati" la rimuove.
-3. Su un nuovo dispositivo l'app chiede la password dell'account, la verifica con Firebase e
-   sblocca i dati.
-4. Gli account Google, che non espongono una password, scelgono una **password di cifratura**
-   dedicata (modificabile dall'area personale).
-5. Finché i dati sono bloccati non viene letto né scritto nulla di sensibile sul database: le
-   analisi restano locali e vengono accodate.
+1. Alla registrazione e a ogni login la cassaforte viene creata o aperta **automaticamente**:
+   nessuna attivazione, nessuna frase aggiuntiva.
+2. Account email/password: la KEK è derivata dalla password dell'account (zero-knowledge). La
+   pagina di login esegue l'operazione prima del redirect e salva la chiave in IndexedDB come
+   `CryptoKey` non estraibile.
+3. Account Google: l'app genera un `autoSecret` casuale, lo usa come KEK e lo salva nel record
+   `keyVault`; la cassaforte si apre da sola su ogni dispositivo. I dati restano cifrati nel
+   database, ma questa modalità non è zero-knowledge in senso stretto.
+4. Finché la chiave non è disponibile non viene letto né scritto nulla di sensibile sul
+   database: le analisi restano locali e vengono accodate, poi sincronizzate automaticamente.
 
 ### Deploy delle regole
 
@@ -222,8 +223,10 @@ chiave sbloccata.
 
 ### Limiti accettati
 
-- Se la password viene persa, i dati cifrati sono **irrecuperabili**: nessuno, nemmeno
-  l'amministratore, possiede la chiave. La reimpostazione via email permette di rientrare
-  nell'account ma non recupera i dati cifrati con la vecchia password.
+- Account email/password: se la password viene persa, i dati cifrati sono **irrecuperabili**:
+  nessuno, nemmeno l'amministratore, possiede la chiave. La reimpostazione via email permette di
+  rientrare nell'account ma non recupera i dati cifrati con la vecchia password.
+- Account Google: l'`autoSecret` salvato nel profilo consente l'apertura automatica; i dati sono
+  cifrati nel database ma questa modalità non è zero-knowledge in senso stretto.
 - Restano leggibili i metadati minimi: email/nome del profilo, data dell'analisi, ID e numero
   dei documenti.

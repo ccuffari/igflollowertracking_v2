@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="scripts/lib/extension-noise.js?v=2.6.0"></script>
-    <script src="scripts/extension-guard.js?v=2.6.0"></script>
+    <script src="scripts/lib/extension-noise.js?v=2.7.0"></script>
+    <script src="scripts/extension-guard.js?v=2.7.0"></script>
     <title>GDPR - Instagram Follower Tracker</title>
     <meta name="description"
         content="Informazioni complete sul rispetto del GDPR (General Data Protection Regulation) da parte di Instagram Follower Tracker.">
@@ -14,15 +14,15 @@
     <meta name="robots" content="index, follow">
     <meta name="google-adsense-account" content="ca-pub-1948802026580753">
 
-    <link rel="stylesheet" href="css/00-variables.css?v=2.6.0">
-    <link rel="stylesheet" href="css/01-base.css?v=2.6.0">
-    <link rel="stylesheet" href="css/02-layout.css?v=2.6.0">
-    <link rel="stylesheet" href="css/03-header-lead.css?v=2.6.0">
-    <link rel="stylesheet" href="css/04-components.css?v=2.6.0">
-    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.6.0">
-    <link rel="stylesheet" href="css/general.css?v=2.6.0">
-    <link rel="stylesheet" href="css/10-theme.css?v=2.6.0">
-    <link rel="stylesheet" href="css/12-legal.css?v=2.6.0">
+    <link rel="stylesheet" href="css/00-variables.css?v=2.7.0">
+    <link rel="stylesheet" href="css/01-base.css?v=2.7.0">
+    <link rel="stylesheet" href="css/02-layout.css?v=2.7.0">
+    <link rel="stylesheet" href="css/03-header-lead.css?v=2.7.0">
+    <link rel="stylesheet" href="css/04-components.css?v=2.7.0">
+    <link rel="stylesheet" href="css/07-ui-utilities.css?v=2.7.0">
+    <link rel="stylesheet" href="css/general.css?v=2.7.0">
+    <link rel="stylesheet" href="css/10-theme.css?v=2.7.0">
+    <link rel="stylesheet" href="css/12-legal.css?v=2.7.0">
 </head>
 
 <body>
@@ -105,10 +105,12 @@
                         <h2>5. Misure di Sicurezza (Art. 32)</h2>
                         <p>Implementiamo misure tecniche e organizzative adeguate:</p>
                         <ul>
-                            <li>Pseudonimizzazione e cifratura end-to-end (AES-GCM) dei contenuti delle analisi e
-                                dei profili disattivati: la chiave è derivata dalla password dell'utente nel browser
-                                e non è accessibile alla piattaforma (zero-knowledge). Per gli account Google, che non
-                                espongono una password, è richiesta una password di cifratura dedicata</li>
+                            <li>Pseudonimizzazione e cifratura (AES-GCM) dei contenuti delle analisi e dei
+                                profili disattivati, attivata automaticamente. Per gli account email/password la
+                                chiave è derivata dalla password dell'utente nel browser e non è accessibile alla
+                                piattaforma (zero-knowledge). Per gli account Google, che non espongono una password,
+                                la chiave è gestita automaticamente dall'app: i dati restano cifrati nel database,
+                                senza alcuna attivazione manuale da parte dell'utente</li>
                             <li>Elaborazione esclusivamente client-side</li>
                             <li>Backup regolari e sicuri</li>
                             <li>Valutazione d'impatto sulla protezione dei dati (DPIA)</li>

@@ -77,11 +77,40 @@
           console.warn('[IGFT] i dati cifrati non si aprono con la password di accesso');
         }
       } else {
-        var record = await Vault.create(password, 'password');
+        var record = await Vault.create(password);
         await ref.set({ keyVault: record, updatedAt: fb.serverTimestamp() }, { merge: true });
       }
     } catch (error) {
       console.warn('[IGFT] preparazione della cifratura non riuscita', error);
+    }
+  }
+
+  // Gli account Google non espongono una password: la cassaforte viene creata
+  // e aperta automaticamente con un segreto casuale gestito dall'app. Nessuna
+  // azione richiesta all'utente, né alla registrazione né agli accessi successivi.
+  async function prepareManagedVault(user) {
+    var Vault = window.IGFTVault;
+    var Crypto = window.IGFTCrypto;
+    var fb = window.IGFTFirebase;
+    if (!user || !Vault || !Crypto) return;
+    if (typeof Vault.supported === 'function' && !Vault.supported()) return;
+    if (!fb || !fb.db || typeof fb.serverTimestamp !== 'function') return;
+    try {
+      await Vault.setUser(user.uid);
+      var ref = fb.db.collection('users').doc(user.uid);
+      var snapshot = await ref.get();
+      var data = snapshot && snapshot.exists ? (snapshot.data() || {}) : {};
+      if (data.keyVault && data.keyVault.autoSecret) {
+        await Vault.unlock(data.keyVault, data.keyVault.autoSecret);
+      } else if (!data.keyVault) {
+        var secret = Crypto.randomSecret();
+        var record = await Vault.create(secret);
+        record.autoSecret = secret;
+        await ref.set({ keyVault: record, updatedAt: fb.serverTimestamp() }, { merge: true });
+      }
+      // keyVault legacy senza autoSecret: viene migrato dopo il primo sblocco.
+    } catch (error) {
+      console.warn('[IGFT] preparazione della cifratura automatica non riuscita', error);
     }
   }
 
@@ -167,7 +196,8 @@
       $('loginGoogle').addEventListener('click', async function () {
         showError($('loginError'), '');
         try {
-          await fb.auth.signInWithPopup(fb.googleProvider());
+          var signedIn = await fb.auth.signInWithPopup(fb.googleProvider());
+          await prepareManagedVault(signedIn && signedIn.user);
           goToApp();
         } catch (error) {
           if (error && error.code === 'auth/popup-blocked') {

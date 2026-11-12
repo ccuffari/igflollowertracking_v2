@@ -248,6 +248,14 @@
     return output.join('-');
   }
 
+  // Segreto ad alta entropia gestito dall'app per gli account che non espongono
+  // una password (Google). Viene usato per avvolgere la DEK in modo che la
+  // cifratura sia attiva automaticamente, senza chiedere nulla all'utente.
+  function randomSecret() {
+    requireCrypto();
+    return toBase64(randomBytes(32));
+  }
+
   function passphraseStrength(passphrase) {
     var value = String(passphrase || '');
     if (value.length < 12) return 'weak';
@@ -273,6 +281,7 @@
     deriveDedupeKey: deriveDedupeKey,
     dedupeId: dedupeId,
     randomPassphrase: randomPassphrase,
+    randomSecret: randomSecret,
     passphraseStrength: passphraseStrength
   };
 })();
