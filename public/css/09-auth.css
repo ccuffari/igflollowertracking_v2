@@ -374,8 +374,15 @@ body.igft-modal-open {
     min-width: 0;
 }
 
-.igft-account-card__mail {
+.igft-account-card__name {
     font-weight: 700;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.igft-account-card__mail {
+    font-weight: 600;
+    opacity: .85;
     overflow-wrap: anywhere;
 }
 

@@ -1,7 +1,12 @@
 rules_version = '2';
 
-// Regole Firestore per Instagram Follower Tracker.
-// Ogni utente può leggere e modificare esclusivamente i propri dati.
+// Firestore rules for Instagram Follower Tracker.
+// Each authenticated user can read and write only their own data.
+// The database is the source of truth for signed-in users:
+//   users/{uid}                         -> profile (email, displayName) + settings
+//   users/{uid}/deactivated/{username}  -> remembered deactivated profiles
+//   users/{uid}/analyses/{id}           -> analysis metadata
+//   users/{uid}/analyses/{id}/items/*   -> username chunks
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -13,11 +18,18 @@ service cloud.firestore {
       allow read, delete: if isOwner(uid);
 
       allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['settings', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly([
+          'email', 'displayName', 'settings', 'createdAt', 'updatedAt'
+        ])
+        && (!('email' in request.resource.data) || request.resource.data.email is string)
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
         && (!('settings' in request.resource.data)
-          || request.resource.data.settings.keys().hasOnly(['autoSave']));
+          || (request.resource.data.settings.keys().hasOnly(['autoSave'])
+            && request.resource.data.settings.autoSave is bool))
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
+        && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
-      // Profili marcati come disattivati, con ID documento = username.
+      // Profiles marked as deactivated, document ID = username.
       match /deactivated/{username} {
         allow read, delete: if isOwner(uid);
 
@@ -28,7 +40,7 @@ service cloud.firestore {
           && request.resource.data.markedAt is timestamp;
       }
 
-      // Metadati dell'analisi. Il contenuto è suddiviso in chunk nella subcollection items.
+      // Analysis metadata. The username list is split into chunks in items.
       match /analyses/{analysisId} {
         allow read, delete: if isOwner(uid);
 

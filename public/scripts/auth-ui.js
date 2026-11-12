@@ -155,11 +155,12 @@
   function storageLabel() {
     var status = Store.getStatus();
     if (status.storage === 'cloud') {
-      if (status.cloudSync === 'slow') return 'Sincronizzazione in background: i dati sono salvati anche su questo dispositivo';
-      return 'Sincronizzate con il tuo account';
+      if (status.cloudSync === 'slow') return 'Sincronizzazione con Firestore in corso: copia locale disponibile';
+      if (status.cloudSync === 'pending') return 'Modifiche in attesa di sincronizzazione su Firestore';
+      return 'Sincronizzate con Firestore';
     }
-    if (status.storage === 'local-fallback') return 'Sincronizzazione non disponibile: dati salvati solo su questo dispositivo';
-    return 'Salvate solo su questo dispositivo';
+    if (status.storage === 'local-fallback') return 'Firestore non raggiungibile: modifiche in coda su questo dispositivo';
+    return 'Salvate solo su questo dispositivo (modalità ospite)';
   }
 
   function accountArea() {
@@ -437,6 +438,7 @@
     }
     var user = status.user;
     var email = user.email || 'Account';
+    var displayName = status.ownerName || user.displayName || '';
     var provider = (user.providerData && user.providerData[0] && user.providerData[0].providerId) || '';
     var verified = !!user.emailVerified;
 
@@ -446,8 +448,11 @@
       '<div class="igft-account-card">',
       '  <span class="igft-avatar igft-avatar--lg" aria-hidden="true">' + escapeHtml(email.charAt(0).toUpperCase()) + '</span>',
       '  <div class="igft-account-card__info">',
+      displayName
+        ? '    <div class="igft-account-card__name">' + escapeHtml(displayName) + '</div>'
+        : '',
       '    <div class="igft-account-card__mail">' + escapeHtml(email) + '</div>',
-      '    <div class="igft-muted">' + (provider === 'google.com' ? 'Accesso con Google' : 'Accesso con email e password') + '</div>',
+      '    <div class="igft-muted">' + (provider === 'google.com' ? 'Accesso con Google' : 'Accesso con email e password') + ' · dati su Firestore</div>',
       '  </div>',
       '</div>',
       verified ? '' : [
@@ -472,7 +477,7 @@
       '</div>',
       '<label class="igft-switch">',
       '  <input type="checkbox" id="igftAutoSave" ' + (status.autoSave ? 'checked' : '') + '>',
-      '  <span>Salva automaticamente le analisi ' + (status.storage === 'cloud' ? 'nel tuo account' : 'su questo dispositivo') + '</span>',
+      '  <span>Salva automaticamente le analisi ' + (status.storage === 'cloud' ? 'su Firestore' : 'su questo dispositivo') + '</span>',
       '</label>',
       '<div class="igft-actions igft-actions--split">',
       '  <button type="button" class="btn ghost" id="igftLogoutBtn">Esci</button>',

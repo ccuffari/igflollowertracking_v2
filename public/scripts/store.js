@@ -2,12 +2,13 @@
  * Persistenza dell'app.
  *
  * - Ospite: localStorage, solo su questo dispositivo.
- * - Utente autenticato: Cloud Firestore (users/{uid}/...), sincronizzato tra dispositivi.
- *   Se Firestore non è raggiungibile si continua a lavorare in locale (fallback) e
- *   l'interfaccia mostra l'avviso.
+ * - Utente autenticato: Cloud Firestore (database "(default)") è la fonte di
+ *   verità. I dati vengono scritti e riletti dal database; la copia locale
+ *   (`igft.u.{uid}.*`) serve solo come cache per l'uso offline e viene
+ *   allineata al cloud appena la connessione torna disponibile.
  *
- * Dati salvati (minimizzazione):
- *   users/{uid}                        -> impostazioni
+ * Dati salvati:
+ *   users/{uid}                        -> profilo (email, nome) e impostazioni
  *   users/{uid}/deactivated/{username} -> profili marcati come disattivati
  *   users/{uid}/analyses/{id}          -> metadati dell'analisi
  *   users/{uid}/analyses/{id}/items/*  -> chunk degli username "non ti seguono"
@@ -21,23 +22,33 @@
 
   var KEYS = {
     settings: 'igft.settings.v1',
-    migratedPrefix: 'igft.migrated.'
+    migratedPrefix: 'igft.migrated.',
+    deactivatedMigratedPrefix: 'igft.deactivatedMigrated.'
   };
 
   // Ogni account ha il proprio spazio locale (`igft.u.{uid}.*`), l'ospite usa
-  // lo spazio condiviso (`igft.*`). Così uscire e rientrare non cancella lo
-  // storico quando Firestore non è disponibile e due account sullo stesso
+  // lo spazio condiviso (`igft.*`). Così uscire e rientrare non cancella la
+  // cache quando Firestore non è raggiungibile e due account sullo stesso
   // dispositivo non si mescolano.
+  function scopePrefix() {
+    return state.user && state.user.uid ? 'igft.u.' + state.user.uid + '.' : 'igft.';
+  }
+
   function scopedKey(kind) {
-    var scope = state.user && state.user.uid ? 'igft.u.' + state.user.uid + '.' : 'igft.';
+    var scope = scopePrefix();
     if (kind === 'deactivated') return scope + 'deactivated.v1';
     if (kind === 'analyses') return scope + 'analyses.v1';
     if (kind === 'analysisPrefix') return scope + 'analysis.';
     return scope + kind;
   }
 
+  // Coda delle modifiche non ancora confermate da Firestore.
+  function pendingKey(kind) {
+    return scopePrefix() + 'pending.' + kind + '.v1';
+  }
+
   var LIMITS = {
-    maxLocalAnalyses: 10,
+    maxLocalAnalyses: 20,
     maxCloudAnalyses: 100,
     chunkSize: 900,
     maxChunks: 400,
@@ -49,13 +60,15 @@
     ready: false,
     loading: false,
     user: null,
+    ownerName: null,
+    ownerEmail: null,
     storage: 'local', // 'local' | 'cloud' | 'local-fallback'
     deactivated: new Map(),
     analyses: [],
     settings: { autoSave: true },
     error: null,
     cloudError: null,
-    cloudSync: 'idle', // 'idle' | 'ok' | 'slow' | 'error'
+    cloudSync: 'idle', // 'idle' | 'ok' | 'pending' | 'slow' | 'error'
     cloudSyncReason: null
   };
 
@@ -87,9 +100,9 @@
     if (!cloudSync.slowLogged) {
       cloudSync.slowLogged = true;
       console.info(
-        '[IGFT] sincronizzazione cloud in background' +
+        '[IGFT] sincronizzazione Firestore in background' +
         (reason ? ' (' + reason + ')' : '') +
-        ': nessuna azione richiesta, i dati restano salvati su questo dispositivo.'
+        ': nessuna azione richiesta, i dati restano nella cache locale finché la connessione non torna.'
       );
     }
     scheduleCloudRetry(wait);
@@ -107,7 +120,7 @@
     if (cloudSync.retryTimer) clearTimeout(cloudSync.retryTimer);
     cloudSync.retryTimer = setTimeout(function () {
       cloudSync.retryTimer = null;
-      if (!state.user || state.storage !== 'cloud' || cloudSync.inFlight) return;
+      if (!hasCloud() || cloudSync.inFlight) return;
       syncCloudInBackground(state.user.uid, false);
     }, Math.max(5000, wait));
     if (cloudSync.retryTimer && typeof cloudSync.retryTimer.unref === 'function') {
@@ -179,9 +192,15 @@
     return window.IGFTFirebase || null;
   }
 
-  function isCloud() {
+  // Autenticato e con il client Firestore disponibile: si può parlare con il DB
+  // anche quando lo stato è `local-fallback` (in quel caso si ritenta).
+  function hasCloud() {
     var fb = firebaseState();
-    return state.storage === 'cloud' && !!state.user && !!fb && !!fb.db;
+    return !!state.user && !!fb && !!fb.db;
+  }
+
+  function isCloud() {
+    return hasCloud() && state.storage === 'cloud';
   }
 
   function userDoc() {
@@ -210,6 +229,42 @@
     } catch (error) {
       // Nothing to do: storage could be disabled.
     }
+  }
+
+  function readList(key) {
+    var stored = safeRead(key, []);
+    return Array.isArray(stored) ? stored : [];
+  }
+
+  function writeList(key, list) {
+    try {
+      safeWrite(key, list);
+    } catch (error) {
+      // Non bloccante: la coda riproverà al prossimo avvio.
+    }
+  }
+
+  function pendingList(kind) {
+    return readList(pendingKey(kind));
+  }
+
+  function addPending(kind, value) {
+    var list = pendingList(kind);
+    if (list.indexOf(value) < 0) {
+      list.push(value);
+      writeList(pendingKey(kind), list);
+    }
+  }
+
+  function removePending(kind, value) {
+    var list = pendingList(kind).filter(function (item) {
+      return item !== value;
+    });
+    writeList(pendingKey(kind), list);
+  }
+
+  function clearPending(kind) {
+    writeList(pendingKey(kind), []);
   }
 
   function loadSettings() {
@@ -259,7 +314,7 @@
     try {
       safeWrite(scopedKey('deactivated'), Array.from(state.deactivated.values()));
     } catch (error) {
-      console.warn('[IGFT] impossibile salvare i profili disattivati in locale', error);
+      console.warn('[IGFT] impossibile salvare i profili disattivati nella cache locale', error);
     }
   }
 
@@ -269,7 +324,11 @@
   }
 
   function persistLocalAnalysisIndex(index) {
-    safeWrite(scopedKey('analyses'), index.slice(0, LIMITS.maxLocalAnalyses));
+    try {
+      safeWrite(scopedKey('analyses'), index.slice(0, LIMITS.maxLocalAnalyses));
+    } catch (error) {
+      // Non bloccante: la coda cloud resta la fonte di verità.
+    }
   }
 
   function localAnalysisKey(id) {
@@ -371,6 +430,8 @@
     };
   }
 
+  // Copia locale dell'analisi: cache di lettura e salvataggio offline. Non è
+  // mai l'unica copia quando l'utente è autenticato.
   function saveLocalAnalysis(id, normalized) {
     var record = Object.assign({ id: id }, normalized.summary, {
       notFollowing: normalized.usernames
@@ -386,15 +447,12 @@
         index.unshift(Object.assign({ id: id }, normalized.summary, { storage: 'local' }));
         persistLocalAnalysisIndex(index);
         pruneLocalAnalyses(id);
-        state.analyses = sortByDateDesc(index.slice(0, LIMITS.maxLocalAnalyses).map(function (item) {
-          return Object.assign({}, item, { storage: 'local' });
-        }));
         return { id: id, summary: normalized.summary, storage: 'local' };
       } catch (error) {
         attempts++;
         var trimmed = localAnalysisIndex();
         if (!trimmed.length) {
-          console.warn('[IGFT] impossibile salvare l\'analisi in locale', error);
+          console.warn('[IGFT] impossibile salvare la copia locale dell\'analisi', error);
           return null;
         }
         var oldest = trimmed.pop();
@@ -403,6 +461,24 @@
       }
     }
     return null;
+  }
+
+  function markLocalAnalysisStorage(id, storage) {
+    var index = localAnalysisIndex();
+    var changed = false;
+    index.forEach(function (item) {
+      if (item && item.id === id && item.storage !== storage) {
+        item.storage = storage;
+        changed = true;
+      }
+    });
+    if (changed) persistLocalAnalysisIndex(index);
+  }
+
+  function upsertAnalysisSummary(entry) {
+    state.analyses = sortByDateDesc(state.analyses.filter(function (item) {
+      return item && item.id !== entry.id;
+    }).concat([entry]));
   }
 
   async function saveCloudAnalysis(id, normalized, options) {
@@ -458,61 +534,90 @@
   async function saveAnalysis(report) {
     var normalized = normalizeReport(report);
 
-    // Salvataggio locale immediato: lo storico non deve mai dipendere dal cloud.
-    var local = saveLocalAnalysis(newId(), normalized);
-    notify();
-
-    if (isCloud() && !cloudBackoffActive()) {
-      try {
-        var saved = await withTimeout(
-          saveCloudAnalysis(local ? local.id : null, normalized),
-          15000,
-          'Sincronizzazione cloud troppo lenta.'
-        );
-        state.cloudError = null;
-        cloudOk();
-        notify();
-        return {
-          id: saved.id,
-          summary: normalized.summary,
-          storage: 'cloud'
-        };
-      } catch (error) {
-        if (isTimeout(error)) {
-          // La copia locale è già salvata: il cloud completa più tardi.
-          cloudSlow('salvataggio analisi');
-        } else {
-          state.cloudError = errorMessage(error);
-          console.warn('[IGFT] salvataggio cloud non riuscito, resta la copia locale: ' + state.cloudError);
-          state.storage = 'local-fallback';
-          if (state.user) {
-            try {
-              // Consente di riprovare la migrazione al prossimo login/retry.
-              localStorage.removeItem(KEYS.migratedPrefix + state.user.uid);
-            } catch (storageError) {
-              // Non bloccante.
-            }
-          }
-        }
-        notify();
-        if (local) return { id: local.id, summary: local.summary, storage: state.storage };
+    // Ospite: nessun account, quindi l'unica destinazione possibile è il browser.
+    if (!hasCloud()) {
+      var guestId = newId();
+      var guestSaved = saveLocalAnalysis(guestId, normalized);
+      if (guestSaved) {
+        upsertAnalysisSummary(Object.assign({ id: guestSaved.id }, guestSaved.summary, { storage: 'local' }));
       }
+      notify();
+      return guestSaved;
     }
 
-    return local;
+    // Autenticato: Firestore è la fonte di verità. La copia locale viene
+    // scritta prima solo per non perdere il report se la rete cade a metà.
+    var id = newId();
+    var local = saveLocalAnalysis(id, normalized);
+    if (!local) id = null;
+    if (!id) {
+      var generated = newId();
+      local = saveLocalAnalysis(generated, normalized);
+      id = local ? local.id : generated;
+    }
+    addPending('analyses', id);
+    state.analyses = sortByDateDesc(state.analyses.filter(function (item) {
+      return item && item.id !== id;
+    }).concat([{ id: id, createdAt: normalized.summary.createdAt, followingCount: normalized.summary.followingCount, followersCount: normalized.summary.followersCount, notFollowingCount: normalized.summary.notFollowingCount, removedDeactivatedCount: normalized.summary.removedDeactivatedCount, truncated: normalized.summary.truncated, storage: 'local-fallback', pending: true }]));
+    notify();
+
+    if (cloudBackoffActive()) {
+      state.cloudSync = 'pending';
+      return { id: id, summary: normalized.summary, storage: 'local-fallback', pending: true };
+    }
+
+    try {
+      var saved = await withTimeout(
+        saveCloudAnalysis(id, normalized),
+        15000,
+        'Salvataggio su Firestore troppo lento.'
+      );
+      removePending('analyses', id);
+      markLocalAnalysisStorage(id, 'cloud');
+      upsertAnalysisSummary({
+        id: saved.id,
+        createdAt: normalized.summary.createdAt,
+        followingCount: normalized.summary.followingCount,
+        followersCount: normalized.summary.followersCount,
+        notFollowingCount: normalized.summary.notFollowingCount,
+        removedDeactivatedCount: normalized.summary.removedDeactivatedCount,
+        truncated: normalized.summary.truncated,
+        storage: 'cloud'
+      });
+      state.cloudError = null;
+      state.storage = 'cloud';
+      cloudOk();
+      notify();
+      return { id: saved.id, summary: normalized.summary, storage: 'cloud' };
+    } catch (error) {
+      if (isTimeout(error)) {
+        cloudSlow('salvataggio analisi');
+      } else {
+        state.cloudError = errorMessage(error);
+        state.storage = 'local-fallback';
+        state.cloudSync = 'pending';
+        console.info('[IGFT] salvataggio su Firestore rimandato: la copia locale verrà sincronizzata automaticamente.');
+        scheduleCloudRetry(60000);
+      }
+      notify();
+      return { id: id, summary: normalized.summary, storage: state.storage, pending: true };
+    }
   }
 
   async function listAnalyses() {
-    if (isCloud() && !cloudBackoffActive()) {
+    if (hasCloud() && !cloudBackoffActive()) {
       try {
-        await withTimeout(refreshCloudAnalyses(), 12000, 'Lettura dello storico cloud troppo lenta.');
+        await withTimeout(refreshCloudAnalyses(), 12000, 'Lettura dello storico da Firestore troppo lenta.');
         state.cloudError = null;
+        state.storage = 'cloud';
         cloudOk();
       } catch (error) {
         if (isTimeout(error)) {
           cloudSlow('storico');
         } else {
           state.cloudError = errorMessage(error);
+          state.storage = 'local-fallback';
+          console.warn('[IGFT] lettura storico da Firestore non riuscita: ' + state.cloudError);
         }
       }
     }
@@ -527,9 +632,10 @@
       .limit(LIMITS.maxCloudAnalyses)
       .get();
 
-    state.analyses = sortByDateDesc(snapshot.docs.map(function (item) {
+    var byId = new Map();
+    snapshot.docs.forEach(function (item) {
       var data = item.data() || {};
-      return {
+      byId.set(item.id, {
         id: item.id,
         createdAt: data.createdAt || null,
         followingCount: Number(data.followingCount) || 0,
@@ -538,25 +644,36 @@
         removedDeactivatedCount: Number(data.removedDeactivatedCount) || 0,
         truncated: !!data.truncated,
         storage: 'cloud'
-      };
-    }).concat(localAnalysisIndex().map(function (item) {
-      return Object.assign({}, item, { storage: 'local' });
-    }).filter(function (item) {
-      return item && item.id && !snapshot.docs.some(function (doc) { return doc.id === item.id; });
-    })));
+      });
+    });
+
+    // Solo le analisi davvero non ancora sincronizzate restano visibili dalla
+    // cache: tutto il resto arriva esclusivamente da Firestore.
+    var localIndex = localAnalysisIndex();
+    pendingList('analyses').forEach(function (id) {
+      if (byId.has(id)) return;
+      var entry = localIndex.find(function (item) { return item && item.id === id; });
+      if (entry) byId.set(id, Object.assign({}, entry, { storage: 'local-fallback', pending: true }));
+    });
+
+    state.analyses = sortByDateDesc(Array.from(byId.values()));
   }
 
   async function getAnalysis(id) {
     if (!id) return null;
 
-    if (isCloud() && !cloudBackoffActive()) {
+    if (hasCloud() && !cloudBackoffActive()) {
       try {
         var doc = userDoc();
         var ref = doc.collection('analyses').doc(id);
-        var snapshot = await withTimeout(ref.get(), 10000, 'Lettura analisi troppo lenta.');
-        if (!snapshot.exists) return null;
+        var snapshot = await withTimeout(ref.get(), 10000, 'Lettura analisi da Firestore troppo lenta.');
+        if (!snapshot.exists) {
+          // Non presente nel DB: può essere un salvataggio ancora in coda.
+          var pending = safeRead(localAnalysisKey(id), null);
+          return pending ? localAnalysisView(pending, id) : null;
+        }
         var data = snapshot.data() || {};
-        var items = await withTimeout(ref.collection('items').get(), 10000, 'Lettura analisi troppo lenta.');
+        var items = await withTimeout(ref.collection('items').get(), 10000, 'Lettura analisi da Firestore troppo lenta.');
         var usernames = [];
         items.docs
           .slice()
@@ -582,13 +699,17 @@
           cloudSlow('dettaglio analisi');
         } else {
           state.cloudError = errorMessage(error);
+          state.storage = 'local-fallback';
           notify();
         }
       }
     }
 
     var local = safeRead(localAnalysisKey(id), null);
-    if (!local) return null;
+    return local ? localAnalysisView(local, id) : null;
+  }
+
+  function localAnalysisView(local, id) {
     return {
       id: local.id || id,
       createdAt: local.createdAt || null,
@@ -597,7 +718,7 @@
       notFollowingCount: Number(local.notFollowingCount) || 0,
       removedDeactivatedCount: Number(local.removedDeactivatedCount) || 0,
       truncated: !!local.truncated,
-      storage: 'local',
+      storage: 'local-fallback',
       notFollowing: Core.uniqueUsernames(local.notFollowing || [])
     };
   }
@@ -605,17 +726,17 @@
   async function deleteAnalysis(id) {
     if (!id) return;
 
-    if (isCloud() && !cloudBackoffActive()) {
+    if (hasCloud() && !cloudBackoffActive()) {
       var doc = userDoc();
       if (doc) {
         try {
           var ref = doc.collection('analyses').doc(id);
-          var items = await withTimeout(ref.collection('items').get(), 12000, 'Eliminazione analisi troppo lenta.');
+          var items = await withTimeout(ref.collection('items').get(), 12000, 'Eliminazione analisi su Firestore troppo lenta.');
           var fb = firebaseState();
           var batch = fb.db.batch();
           items.docs.forEach(function (item) { batch.delete(item.ref); });
           batch.delete(ref);
-          await withTimeout(batch.commit(), 12000, 'Eliminazione analisi troppo lenta.');
+          await withTimeout(batch.commit(), 12000, 'Eliminazione analisi su Firestore troppo lenta.');
         } catch (error) {
           if (isTimeout(error)) {
             cloudSlow('eliminazione analisi');
@@ -627,10 +748,11 @@
       }
     }
 
+    removePending('analyses', id);
     removeLocalAnalysis(id);
     var index = localAnalysisIndex().filter(function (item) { return item && item.id !== id; });
     persistLocalAnalysisIndex(index);
-    state.analyses = sortByDateDesc(state.analyses.filter(function (item) { return item.id !== id; }));
+    state.analyses = sortByDateDesc(state.analyses.filter(function (item) { return item && item.id !== id; }));
     notify();
   }
 
@@ -673,24 +795,30 @@
     persistLocalDeactivated();
     notify();
 
-    if (isCloud()) {
-      try {
-        await withTimeout(userDoc().collection('deactivated').doc(normalized).set({
-          username: normalized,
-          markedAt: firebaseState().serverTimestamp()
-        }), 8000, 'Sincronizzazione del profilo troppo lenta.');
-        return { synced: true };
-      } catch (error) {
-        if (isTimeout(error)) {
-          // Scrittura ancora in corso: la copia locale è già persistita.
-          return { synced: true };
-        }
-        state.cloudError = errorMessage(error);
-        notify();
-        return { synced: false, error: state.cloudError };
+    if (!hasCloud()) return { synced: true };
+
+    removePending('deactivatedRemove', normalized);
+    addPending('deactivatedAdd', normalized);
+
+    try {
+      await withTimeout(userDoc().collection('deactivated').doc(normalized).set({
+        username: normalized,
+        markedAt: firebaseState().serverTimestamp()
+      }), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
+      removePending('deactivatedAdd', normalized);
+      state.cloudError = null;
+      return { synced: true };
+    } catch (error) {
+      if (isTimeout(error)) {
+        state.cloudSync = 'pending';
+        return { synced: true, pending: true };
       }
+      state.cloudError = errorMessage(error);
+      state.cloudSync = 'pending';
+      notify();
+      scheduleCloudRetry(60000);
+      return { synced: false, error: state.cloudError, pending: true };
     }
-    return { synced: true };
   }
 
   async function unmarkDeactivated(username) {
@@ -700,20 +828,27 @@
     persistLocalDeactivated();
     notify();
 
-    if (isCloud()) {
-      try {
-        await withTimeout(userDoc().collection('deactivated').doc(normalized).delete(), 8000, 'Sincronizzazione del profilo troppo lenta.');
-        return { synced: true };
-      } catch (error) {
-        if (isTimeout(error)) {
-          return { synced: true };
-        }
-        state.cloudError = errorMessage(error);
-        notify();
-        return { synced: false, error: state.cloudError };
+    if (!hasCloud()) return { synced: true };
+
+    removePending('deactivatedAdd', normalized);
+    addPending('deactivatedRemove', normalized);
+
+    try {
+      await withTimeout(userDoc().collection('deactivated').doc(normalized).delete(), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
+      removePending('deactivatedRemove', normalized);
+      state.cloudError = null;
+      return { synced: true };
+    } catch (error) {
+      if (isTimeout(error)) {
+        state.cloudSync = 'pending';
+        return { synced: true, pending: true };
       }
+      state.cloudError = errorMessage(error);
+      state.cloudSync = 'pending';
+      notify();
+      scheduleCloudRetry(60000);
+      return { synced: false, error: state.cloudError, pending: true };
     }
-    return { synced: true };
   }
 
   async function toggleDeactivated(username) {
@@ -733,7 +868,7 @@
         .orderBy('__name__')
         .limit(LIMITS.deactivatedPageSize);
       if (lastDoc) query = query.startAfter(lastDoc);
-      var snapshot = await withTimeout(query.get(), 10000, 'Lettura profili disattivati troppo lenta.');
+      var snapshot = await withTimeout(query.get(), 10000, 'Lettura profili disattivati da Firestore troppo lenta.');
       if (!snapshot.docs.length) break;
 
       snapshot.docs.forEach(function (item) {
@@ -756,16 +891,62 @@
     return cloudMap;
   }
 
-  async function mergeDeactivatedIntoCloud(uid) {
+  // Invia a Firestore le modifiche ai disattivati rimaste in coda (offline).
+  async function flushPendingDeactivated() {
     var doc = userDoc();
     var fb = firebaseState();
     if (!doc || !fb) return;
 
-    var cloudMap = await readCloudDeactivated(doc);
+    var removals = pendingList('deactivatedRemove');
+    var adds = pendingList('deactivatedAdd');
+    if (!removals.length && !adds.length) return;
 
-    var pending = [];
-    state.deactivated.forEach(function (item, username) {
-      if (!cloudMap.has(username)) pending.push(item);
+    for (var r = 0; r < removals.length; r += LIMITS.batchSize) {
+      var removeBatch = fb.db.batch();
+      removals.slice(r, r + LIMITS.batchSize).forEach(function (username) {
+        removeBatch.delete(doc.collection('deactivated').doc(username));
+      });
+      await withTimeout(removeBatch.commit(), 10000, 'Scrittura profili disattivati su Firestore troppo lenta.');
+    }
+
+    for (var a = 0; a < adds.length; a += LIMITS.batchSize) {
+      var addBatch = fb.db.batch();
+      adds.slice(a, a + LIMITS.batchSize).forEach(function (username) {
+        var item = state.deactivated.get(username) || { username: username, markedAt: new Date().toISOString() };
+        addBatch.set(doc.collection('deactivated').doc(username), {
+          username: username,
+          markedAt: new Date(item.markedAt)
+        });
+      });
+      await withTimeout(addBatch.commit(), 10000, 'Scrittura profili disattivati su Firestore troppo lenta.');
+    }
+
+    clearPending('deactivatedRemove');
+    clearPending('deactivatedAdd');
+  }
+
+  // Importa una sola volta i disattivati che erano già nella cache locale
+  // (creati come ospite o prima dell'attivazione di Firestore).
+  async function migrateLocalDeactivated(uid) {
+    var migratedKey = KEYS.deactivatedMigratedPrefix + uid;
+    try {
+      if (localStorage.getItem(migratedKey) === '1') return false;
+    } catch (error) {
+      return false;
+    }
+
+    var doc = userDoc();
+    var fb = firebaseState();
+    var local = localDeactivatedList();
+    if (!doc || !fb || !local.length) {
+      try { localStorage.setItem(migratedKey, '1'); } catch (error) { /* non bloccante */ }
+      return false;
+    }
+
+    var cloudMap = await readCloudDeactivated(doc);
+    var removals = new Set(pendingList('deactivatedRemove'));
+    var pending = local.filter(function (item) {
+      return !cloudMap.has(item.username) && !removals.has(item.username);
     });
 
     for (var start = 0; start < pending.length; start += LIMITS.batchSize) {
@@ -776,14 +957,21 @@
           markedAt: new Date(item.markedAt)
         });
       });
-      await withTimeout(batch.commit(), 10000, 'Scrittura profili disattivati troppo lenta.');
+      await withTimeout(batch.commit(), 10000, 'Migrazione profili disattivati su Firestore troppo lenta.');
     }
 
-    var merged = new Map(cloudMap);
-    state.deactivated.forEach(function (item, username) {
-      if (!merged.has(username)) merged.set(username, item);
-    });
-    state.deactivated = merged;
+    try { localStorage.setItem(migratedKey, '1'); } catch (error) { /* non bloccante */ }
+    return pending.length > 0;
+  }
+
+  // Rilegge i disattivati da Firestore: il DB è la fonte di verità, la cache
+  // locale viene sostituita con quanto presente nel database.
+  async function refreshCloudDeactivated() {
+    var doc = userDoc();
+    if (!doc) return;
+    await flushPendingDeactivated();
+    var cloudMap = await readCloudDeactivated(doc);
+    state.deactivated = cloudMap;
     persistLocalDeactivated();
     notify();
   }
@@ -791,12 +979,13 @@
   async function migrateLocalAnalyses(uid) {
     var migratedKey = KEYS.migratedPrefix + uid;
     try {
-      if (localStorage.getItem(migratedKey) === '1') return;
+      if (localStorage.getItem(migratedKey) === '1') return false;
     } catch (error) {
-      return;
+      return false;
     }
 
     var index = localAnalysisIndex();
+    var uploaded = 0;
     for (var i = 0; i < index.length; i++) {
       var entry = index[i];
       if (!entry || !entry.id) continue;
@@ -809,9 +998,11 @@
           removedDeactivatedCount: local.removedDeactivatedCount,
           notFollowing: local.notFollowing || []
         }), { createdAt: local.createdAt });
+        markLocalAnalysisStorage(entry.id, 'cloud');
+        uploaded++;
       } catch (error) {
-        console.warn('[IGFT] migrazione analisi locale non riuscita', error);
-        return;
+        console.warn('[IGFT] migrazione analisi locale su Firestore non riuscita: ' + errorMessage(error));
+        return uploaded > 0;
       }
     }
 
@@ -820,6 +1011,58 @@
     } catch (error) {
       // Non bloccante.
     }
+    return uploaded > 0;
+  }
+
+  // Invia a Firestore le analisi salvate mentre il DB non era raggiungibile.
+  async function flushPendingAnalyses() {
+    var ids = pendingList('analyses');
+    var uploaded = 0;
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i];
+      var local = safeRead(localAnalysisKey(id), null);
+      if (!local) {
+        removePending('analyses', id);
+        continue;
+      }
+      try {
+        await saveCloudAnalysis(id, normalizeReport({
+          followingCount: local.followingCount,
+          followersCount: local.followersCount,
+          removedDeactivatedCount: local.removedDeactivatedCount,
+          notFollowing: local.notFollowing || []
+        }), { createdAt: local.createdAt });
+        removePending('analyses', id);
+        markLocalAnalysisStorage(id, 'cloud');
+        uploaded++;
+      } catch (error) {
+        console.warn('[IGFT] sincronizzazione analisi in coda non riuscita: ' + errorMessage(error));
+        break;
+      }
+    }
+    return uploaded > 0;
+  }
+
+  function profileFor(user) {
+    var email = (user && user.email) || '';
+    var displayName = (user && user.displayName) || (email ? email.split('@')[0] : 'Utente');
+    return { email: email, displayName: displayName };
+  }
+
+  // Salva in users/{uid} l'identità dell'utente (email e nome) e le impostazioni.
+  async function ensureProfile() {
+    var doc = userDoc();
+    var fb = firebaseState();
+    if (!doc || !fb || !state.user) return;
+    var profile = profileFor(state.user);
+    state.ownerEmail = profile.email;
+    state.ownerName = profile.displayName;
+    await withTimeout(doc.set({
+      email: profile.email,
+      displayName: profile.displayName,
+      settings: { autoSave: state.settings.autoSave },
+      updatedAt: fb.serverTimestamp()
+    }, { merge: true }), 10000, 'Aggiornamento profilo su Firestore troppo lento.');
   }
 
   function switchToCloud(user, force) {
@@ -828,6 +1071,9 @@
     }
     var guestSnapshot = state.user ? null : readLocalSnapshot();
     state.user = user;
+    var profile = profileFor(user);
+    state.ownerEmail = profile.email;
+    state.ownerName = profile.displayName;
 
     if (guestSnapshot && !hasScopedLocalData()) {
       adoptGuestLocalData(guestSnapshot);
@@ -840,8 +1086,8 @@
     loadLocalState();
     notify();
 
-    // La sincronizzazione non blocca l'interfaccia: lo storico locale è già
-    // disponibile, il cloud si allinea in background.
+    // La sincronizzazione non blocca l'interfaccia: la cache locale è già
+    // disponibile, Firestore si allinea in background.
     if (!force && cloudBackoffActive()) return;
     syncCloudInBackground(user.uid, force);
   }
@@ -852,15 +1098,17 @@
 
     cloudSync.inFlight = true;
     var guard = function () {
-      return !!state.user && state.user.uid === uid && state.storage === 'cloud';
+      return !!state.user && state.user.uid === uid;
     };
 
     try {
-      // 1. Storico: è l'unica operazione che determina lo stato della sessione.
+      // 1. Storico: lettura dal database, unica operazione che determina lo
+      //    stato della sessione.
       try {
-        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico cloud troppo lenta.');
+        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico da Firestore troppo lenta.');
         if (guard()) {
           state.cloudError = null;
+          state.storage = 'cloud';
           cloudOk();
           notify();
         }
@@ -872,37 +1120,57 @@
         if (guard()) {
           state.cloudError = errorMessage(error);
           state.storage = 'local-fallback';
+          state.cloudSync = 'pending';
           console.warn('[IGFT] Firestore non disponibile: ' + state.cloudError);
           notify();
+          scheduleCloudRetry(60000);
         }
         return;
       }
 
-      // 2. Unione dei profili disattivati (best-effort).
+      // 2. Profilo utente (email e nome) e impostazioni.
       try {
-        await withTimeout(mergeDeactivatedIntoCloud(uid), 15000, 'Unione profili disattivati troppo lenta.');
+        await ensureProfile();
+      } catch (error) {
+        if (isTimeout(error)) {
+          cloudSlow('profilo');
+        } else {
+          console.warn('[IGFT] profilo non sincronizzato: ' + errorMessage(error));
+        }
+      }
+
+      // 3. Profili disattivati: migrazione una tantum, coda offline, rilettura.
+      try {
+        await withTimeout(migrateLocalDeactivated(uid), 15000, 'Migrazione profili disattivati troppo lenta.');
+        await withTimeout(refreshCloudDeactivated(), 15000, 'Lettura profili disattivati da Firestore troppo lenta.');
         if (guard()) notify();
       } catch (error) {
         if (isTimeout(error)) {
           cloudSlow('profili disattivati');
           return;
         }
-        console.warn('[IGFT] unione profili disattivati non riuscita: ' + errorMessage(error));
+        console.warn('[IGFT] sincronizzazione profili disattivati non riuscita: ' + errorMessage(error));
       }
 
-      // 3. Migrazione dello storico locale (best-effort).
+      // 4. Analisi salvate offline e migrazione una tantum della cache locale.
       try {
-        await withTimeout(migrateLocalAnalyses(uid), 20000, 'Migrazione analisi troppo lenta.');
+        var flushed = await withTimeout(flushPendingAnalyses(), 20000, 'Sincronizzazione analisi in coda troppo lenta.');
+        var migrated = await withTimeout(migrateLocalAnalyses(uid), 20000, 'Migrazione analisi su Firestore troppo lenta.');
+        if (flushed || migrated) {
+          await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico da Firestore troppo lenta.');
+          if (guard()) notify();
+        }
       } catch (error) {
         if (isTimeout(error)) {
           cloudSlow('migrazione');
           return;
         }
-        console.warn('[IGFT] migrazione analisi non riuscita: ' + errorMessage(error));
+        console.warn('[IGFT] sincronizzazione analisi non riuscita: ' + errorMessage(error));
       }
 
       if (guard()) {
         state.cloudError = null;
+        state.storage = 'cloud';
         cloudOk();
         notify();
       }
@@ -913,6 +1181,8 @@
 
   function switchToLocal() {
     state.user = null;
+    state.ownerName = null;
+    state.ownerEmail = null;
     state.storage = 'local';
     state.cloudError = null;
     state.loading = false;
@@ -924,10 +1194,10 @@
       cloudSync.retryTimer = null;
     }
 
-    // I dati dell'account restano nella sua area locale (`igft.u.{uid}.*`):
-    // al login successivo lo storico è subito disponibile anche se Firestore
-    // non è raggiungibile. La cancellazione avviene solo su richiesta esplicita
-    // ("Elimina account e dati"). L'ospite vede solo la propria area.
+    // I dati dell'account restano nella sua area locale (`igft.u.{uid}.*`)
+    // come cache: al login successivo la consultazione è immediata e Firestore
+    // resta comunque la fonte di verità. La cancellazione avviene solo su
+    // richiesta esplicita ("Elimina account e dati").
     loadLocalState();
     notify();
   }
@@ -966,7 +1236,7 @@
     }
 
     var usernames = Array.from(state.deactivated.keys());
-    if (isCloud()) {
+    if (hasCloud()) {
       var doc = userDoc();
       var fb = firebaseState();
       if (doc && fb) {
@@ -974,7 +1244,7 @@
           var snapshot = await withTimeout(
             doc.collection('deactivated').get(),
             15000,
-            'Eliminazione dati cloud troppo lenta.'
+            'Eliminazione dati da Firestore troppo lenta.'
           );
           for (var start = 0; start < snapshot.docs.length; start += LIMITS.batchSize) {
             var batch = fb.db.batch();
@@ -998,31 +1268,35 @@
     safeRemove(scopedKey('deactivated'));
     safeRemove(scopedKey('analyses'));
     safeRemove(KEYS.settings);
+    clearPending('analyses');
+    clearPending('deactivatedAdd');
+    clearPending('deactivatedRemove');
 
     localIds.forEach(function (id) { removeLocalAnalysis(id); });
 
     if (state.user) {
       try {
         localStorage.removeItem(KEYS.migratedPrefix + state.user.uid);
+        localStorage.removeItem(KEYS.deactivatedMigratedPrefix + state.user.uid);
       } catch (error) {
         // Non bloccante.
       }
     }
 
     if (cloudFailed) {
-      throw new Error(state.cloudError || 'Eliminazione dei dati sul cloud non riuscita.');
+      throw new Error(state.cloudError || 'Eliminazione dei dati su Firestore non riuscita.');
     }
   }
 
   function setAutoSave(value) {
     state.settings.autoSave = !!value;
     persistSettings();
-    if (isCloud()) {
+    if (hasCloud()) {
       var doc = userDoc();
       if (doc) {
         doc.set({ settings: { autoSave: state.settings.autoSave } }, { merge: true })
           .catch(function (error) {
-            console.warn('[IGFT] impostazioni non sincronizzate', error);
+            console.warn('[IGFT] impostazioni non sincronizzate: ' + errorMessage(error));
           });
       }
     }
@@ -1034,8 +1308,11 @@
       ready: state.ready,
       loading: state.loading,
       user: state.user,
+      ownerName: state.ownerName,
+      ownerEmail: state.ownerEmail,
       storage: state.storage,
       signedIn: !!state.user,
+      persistence: hasCloud() ? 'firestore' : 'local',
       cloudAvailable: !!(firebaseState() && firebaseState().available),
       error: state.error,
       cloudError: state.cloudError,

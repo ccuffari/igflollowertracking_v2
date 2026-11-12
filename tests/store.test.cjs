@@ -14,7 +14,7 @@ function createStore(firebase, options) {
   const timers = opts.fastTimers
     ? (fn, ms) => setTimeout(fn, Math.min(ms, 25))
     : setTimeout;
-  const memory = new Map();
+  const memory = new Map(Object.entries(opts.seed || {}));
   const localStorage = {
     getItem(key) { return memory.has(key) ? memory.get(key) : null; },
     setItem(key, value) { memory.set(key, String(value)); },
@@ -274,5 +274,264 @@ test('i timeout cloud restano informativi e non degradano la sessione', async ()
   assert.equal(status.cloudError, null);
   assert.equal(logs.warn.length, 0);
   assert.equal(logs.error.length, 0);
-  assert.ok(logs.info.some((message) => message.includes('sincronizzazione cloud in background')));
+  assert.ok(logs.info.some((message) => message.includes('sincronizzazione Firestore in background')));
+});
+
+function timeOf(value) {
+  if (value && typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  return new Date(value).getTime();
+}
+
+function createFakeFirestore(options) {
+  const opts = options || {};
+  const collections = new Map();
+  const state = { failWrites: !!opts.failWrites, failReads: !!opts.failReads };
+  let autoId = 0;
+
+  function unavailable() {
+    return Object.assign(new Error('offline'), { code: 'unavailable' });
+  }
+
+  function bucket(path) {
+    const key = path.join('/');
+    if (!collections.has(key)) collections.set(key, new Map());
+    return collections.get(key);
+  }
+
+  function docRef(path) {
+    const id = path[path.length - 1];
+    const parent = path.slice(0, -1);
+    return {
+      id,
+      path,
+      get() {
+        if (state.failReads) return Promise.reject(unavailable());
+        const data = bucket(parent).get(id);
+        return Promise.resolve({ id, exists: typeof data !== 'undefined', data: () => data });
+      },
+      set(value, config) {
+        if (state.failWrites) return Promise.reject(unavailable());
+        const map = bucket(parent);
+        const merged = config && config.merge && map.has(id)
+          ? Object.assign({}, map.get(id), value)
+          : value;
+        map.set(id, merged);
+        return Promise.resolve();
+      },
+      delete() {
+        if (state.failWrites) return Promise.reject(unavailable());
+        bucket(parent).delete(id);
+        return Promise.resolve();
+      },
+      collection(name) {
+        return collectionRef(path.concat(name));
+      }
+    };
+  }
+
+  function queryRef(path, field, direction) {
+    const query = {
+      field,
+      direction,
+      max: Infinity,
+      afterId: null,
+      limit(n) { query.max = n; return query; },
+      startAfter(doc) { query.afterId = doc && doc.id; return query; },
+      orderBy(nextField, nextDirection) {
+        query.field = nextField;
+        query.direction = nextDirection;
+        return query;
+      },
+      get() {
+        if (state.failReads) return Promise.reject(unavailable());
+        let docs = Array.from(bucket(path).entries()).map(([id, data]) => ({
+          id,
+          data: () => data
+        }));
+        if (query.field === '__name__') {
+          docs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+          if (query.direction === 'desc') docs.reverse();
+        } else {
+          docs.sort((a, b) => timeOf(a.data()[query.field]) - timeOf(b.data()[query.field]));
+          if (query.direction === 'desc') docs.reverse();
+        }
+        if (query.afterId) {
+          const index = docs.findIndex((doc) => doc.id === query.afterId);
+          if (index >= 0) docs = docs.slice(index + 1);
+        }
+        return Promise.resolve({ docs: docs.slice(0, query.max) });
+      }
+    };
+    return query;
+  }
+
+  function collectionRef(path) {
+    return {
+      doc(id) { return docRef(path.concat(id || ('auto-' + (++autoId)))); },
+      get() {
+        if (state.failReads) return Promise.reject(unavailable());
+        const docs = Array.from(bucket(path).entries()).map(([id, data]) => ({
+          id,
+          data: () => data,
+          ref: docRef(path.concat(id))
+        }));
+        return Promise.resolve({ docs });
+      },
+      orderBy(field, direction) { return queryRef(path, field, direction); }
+    };
+  }
+
+  const db = {
+    collection(name) { return collectionRef([name]); },
+    batch() {
+      const operations = [];
+      return {
+        set(ref, value) { operations.push({ type: 'set', ref, value }); },
+        delete(ref) { operations.push({ type: 'delete', ref }); },
+        commit() {
+          if (state.failWrites) return Promise.reject(unavailable());
+          operations.forEach((operation) => {
+            if (operation.type === 'set') operation.ref.set(operation.value);
+            else operation.ref.delete();
+          });
+          return Promise.resolve();
+        }
+      };
+    }
+  };
+
+  return {
+    db,
+    state,
+    collections,
+    seed(path, id, data) { bucket(path).set(id, data); }
+  };
+}
+
+function fakeFirebase(fake) {
+  return {
+    ready: Promise.resolve(),
+    available: true,
+    db: fake.db,
+    auth: {
+      onAuthStateChanged(callback) {
+        callback({ uid: 'user-1', email: 'tester@example.com', displayName: 'Tester' });
+      }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+}
+
+const CLOUD_SEED = {
+  'igft.migrated.user-1': '1',
+  'igft.deactivatedMigrated.user-1': '1'
+};
+
+test('Firestore è la fonte di verità per storico e disattivati', async () => {
+  const fake = createFakeFirestore();
+  fake.seed(['users', 'user-1', 'analyses'], 'a1', {
+    createdAt: new Date(),
+    followingCount: 10,
+    followersCount: 9,
+    notFollowingCount: 1,
+    removedDeactivatedCount: 0,
+    truncated: false,
+    chunkCount: 1
+  });
+  fake.seed(['users', 'user-1', 'analyses', 'a1', 'items'], 'chunk-000', { usernames: ['alice'] });
+  fake.seed(['users', 'user-1', 'deactivated'], 'ghost', {
+    username: 'ghost',
+    markedAt: new Date()
+  });
+
+  const seed = Object.assign({}, CLOUD_SEED, {
+    'igft.u.user-1.analyses.v1': JSON.stringify([{
+      id: 'stale',
+      createdAt: new Date().toISOString(),
+      notFollowingCount: 99,
+      storage: 'local'
+    }]),
+    'igft.u.user-1.analysis.stale': JSON.stringify({
+      id: 'stale',
+      createdAt: new Date().toISOString(),
+      notFollowingCount: 99,
+      notFollowing: ['stale']
+    }),
+    'igft.u.user-1.deactivated.v1': JSON.stringify([{
+      username: 'old',
+      markedAt: new Date().toISOString()
+    }])
+  });
+
+  const { store } = createStore(fakeFirebase(fake), { seed });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  const analyses = await store.listAnalyses();
+  assert.equal(store.getStatus().storage, 'cloud');
+  assert.equal(analyses.length, 1);
+  assert.equal(analyses[0].id, 'a1');
+
+  const deactivated = store.listDeactivated().map((item) => item.username);
+  assert.deepEqual(deactivated, ['ghost']);
+  assert.ok(fake.collections.get('users/user-1/deactivated').has('ghost'));
+  assert.ok(!fake.collections.get('users/user-1/deactivated').has('old'));
+});
+
+test('saveAnalysis scrive analisi e username su Firestore', async () => {
+  const fake = createFakeFirestore();
+  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  const saved = await store.saveAnalysis(report);
+  assert.equal(saved.storage, 'cloud');
+
+  const analyses = fake.collections.get('users/user-1/analyses');
+  assert.ok(analyses && analyses.has(saved.id));
+  assert.equal(analyses.get(saved.id).notFollowingCount, 3);
+
+  const items = fake.collections.get('users/user-1/analyses/' + saved.id + '/items');
+  assert.deepEqual(Array.from(items.get('chunk-000').usernames), ['alice', 'bob', 'carol']);
+});
+
+test('i profili disattivati sono salvati su Firestore e riletti al retry', async () => {
+  const fake = createFakeFirestore();
+  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  await store.markDeactivated('ghost');
+  assert.ok(fake.collections.get('users/user-1/deactivated').has('ghost'));
+
+  fake.seed(['users', 'user-1', 'deactivated'], 'remote', {
+    username: 'remote',
+    markedAt: new Date()
+  });
+
+  await store.retryCloud();
+  const names = store.listDeactivated().map((item) => item.username).sort();
+  assert.deepEqual(names, ['ghost', 'remote']);
+});
+
+test('le analisi salvate offline vengono inviate a Firestore al retry', async () => {
+  const fake = createFakeFirestore();
+  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  fake.state.failWrites = true;
+  const saved = await store.saveAnalysis(report);
+  assert.notEqual(saved.storage, 'cloud');
+  assert.equal(store.getStatus().analysesCount, 1);
+
+  fake.state.failWrites = false;
+  await store.retryCloud();
+
+  const analyses = fake.collections.get('users/user-1/analyses');
+  assert.ok(analyses && analyses.has(saved.id));
+  const list = await store.listAnalyses();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].storage, 'cloud');
 });

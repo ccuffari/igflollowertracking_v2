@@ -110,8 +110,8 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         currentSaveNote = {
           text: saved.storage === 'cloud'
-            ? 'Analisi salvata nel tuo account.'
-            : 'Analisi salvata solo su questo dispositivo.',
+            ? 'Analisi salvata su Firestore.'
+            : 'Analisi in coda: verrà sincronizzata su Firestore appena possibile.',
           kind: 'success',
           showHistory: true
         };
@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const wasMarked = window.IGFTStore.isDeactivated(username);
       const result = await window.IGFTStore.toggleDeactivated(username);
       if (result && result.synced === false) {
-        notifyUser('Salvato solo su questo dispositivo: sincronizzazione non disponibile.', 'error');
+        notifyUser('Salvato in coda: sincronizzazione con Firestore non disponibile, riproveremo automaticamente.', 'error');
       } else {
         notifyUser(
           wasMarked
@@ -432,7 +432,9 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       currentSaveNote = {
         text: saved
-          ? 'Analisi salvata nello storico.'
+          ? (saved.storage === 'cloud'
+            ? 'Analisi salvata su Firestore.'
+            : 'Analisi in coda: verrà sincronizzata su Firestore appena possibile.')
           : 'Salvataggio dell\'analisi non riuscito.',
         kind: saved ? 'success' : 'error',
         showHistory: true
