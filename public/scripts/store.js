@@ -20,12 +20,21 @@
   var Core = window.IGFTCore;
 
   var KEYS = {
-    deactivated: 'igft.deactivated.v1',
-    analyses: 'igft.analyses.v1',
-    analysisPrefix: 'igft.analysis.',
     settings: 'igft.settings.v1',
     migratedPrefix: 'igft.migrated.'
   };
+
+  // Ogni account ha il proprio spazio locale (`igft.u.{uid}.*`), l'ospite usa
+  // lo spazio condiviso (`igft.*`). Così uscire e rientrare non cancella lo
+  // storico quando Firestore non è disponibile e due account sullo stesso
+  // dispositivo non si mescolano.
+  function scopedKey(kind) {
+    var scope = state.user && state.user.uid ? 'igft.u.' + state.user.uid + '.' : 'igft.';
+    if (kind === 'deactivated') return scope + 'deactivated.v1';
+    if (kind === 'analyses') return scope + 'analyses.v1';
+    if (kind === 'analysisPrefix') return scope + 'analysis.';
+    return scope + kind;
+  }
 
   var LIMITS = {
     maxLocalAnalyses: 10,
@@ -219,7 +228,7 @@
   }
 
   function localDeactivatedList() {
-    var stored = safeRead(KEYS.deactivated, []);
+    var stored = safeRead(scopedKey('deactivated'), []);
     if (!Array.isArray(stored)) return [];
     return stored
       .map(function (item) {
@@ -248,23 +257,23 @@
 
   function persistLocalDeactivated() {
     try {
-      safeWrite(KEYS.deactivated, Array.from(state.deactivated.values()));
+      safeWrite(scopedKey('deactivated'), Array.from(state.deactivated.values()));
     } catch (error) {
       console.warn('[IGFT] impossibile salvare i profili disattivati in locale', error);
     }
   }
 
   function localAnalysisIndex() {
-    var stored = safeRead(KEYS.analyses, []);
+    var stored = safeRead(scopedKey('analyses'), []);
     return Array.isArray(stored) ? stored : [];
   }
 
   function persistLocalAnalysisIndex(index) {
-    safeWrite(KEYS.analyses, index.slice(0, LIMITS.maxLocalAnalyses));
+    safeWrite(scopedKey('analyses'), index.slice(0, LIMITS.maxLocalAnalyses));
   }
 
   function localAnalysisKey(id) {
-    return KEYS.analysisPrefix + id;
+    return scopedKey('analysisPrefix') + id;
   }
 
   function removeLocalAnalysis(id) {
@@ -292,6 +301,47 @@
     state.analyses = sortByDateDesc(localAnalysisIndex().map(function (item) {
       return Object.assign({}, item, { storage: 'local' });
     }));
+  }
+
+  function readLocalSnapshot() {
+    return {
+      deactivated: localDeactivatedList(),
+      analyses: localAnalysisIndex().map(function (item) {
+        if (!item || !item.id) return null;
+        return {
+          index: item,
+          record: safeRead(localAnalysisKey(item.id), null)
+        };
+      }).filter(Boolean)
+    };
+  }
+
+  function hasScopedLocalData() {
+    return safeRead(scopedKey('analyses'), null) !== null ||
+      safeRead(scopedKey('deactivated'), null) !== null;
+  }
+
+  // Al primo accesso su questo dispositivo lo storico e i disattivati creati
+  // come ospite diventano il punto di partenza dell'account. La copia ospite
+  // resta intatta, così nessun dato viene perso.
+  function adoptGuestLocalData(snapshot) {
+    if (!snapshot) return;
+    try {
+      if (snapshot.deactivated.length) {
+        safeWrite(scopedKey('deactivated'), snapshot.deactivated);
+      }
+      var index = [];
+      snapshot.analyses.forEach(function (entry) {
+        if (!entry.record) return;
+        safeWrite(scopedKey('analysisPrefix') + entry.index.id, entry.record);
+        index.push(entry.index);
+      });
+      if (index.length) {
+        safeWrite(scopedKey('analyses'), index.slice(0, LIMITS.maxLocalAnalyses));
+      }
+    } catch (error) {
+      console.warn('[IGFT] copia dei dati locali nell\'account non riuscita', error);
+    }
   }
 
   function newId() {
@@ -776,11 +826,18 @@
     if (!force && state.user && state.user.uid === user.uid && state.storage === 'cloud') {
       return;
     }
+    var guestSnapshot = state.user ? null : readLocalSnapshot();
     state.user = user;
+
+    if (guestSnapshot && !hasScopedLocalData()) {
+      adoptGuestLocalData(guestSnapshot);
+    }
+
     state.storage = 'cloud';
     state.loading = false;
     state.error = null;
     state.cloudError = null;
+    loadLocalState();
     notify();
 
     // La sincronizzazione non blocca l'interfaccia: lo storico locale è già
@@ -855,7 +912,6 @@
   }
 
   function switchToLocal() {
-    var wasCloud = !!state.user && state.storage === 'cloud';
     state.user = null;
     state.storage = 'local';
     state.cloudError = null;
@@ -868,19 +924,11 @@
       cloudSync.retryTimer = null;
     }
 
-    if (wasCloud) {
-      // Dopo il logout non lasciare sul dispositivo la copia dei dati dell'account:
-      // restano comunque sincronizzati su Firestore.
-      localAnalysisIndex().forEach(function (item) {
-        if (item && item.id) removeLocalAnalysis(item.id);
-      });
-      safeRemove(KEYS.analyses);
-      safeRemove(KEYS.deactivated);
-      state.deactivated = new Map();
-      state.analyses = [];
-    } else {
-      loadLocalState();
-    }
+    // I dati dell'account restano nella sua area locale (`igft.u.{uid}.*`):
+    // al login successivo lo storico è subito disponibile anche se Firestore
+    // non è raggiungibile. La cancellazione avviene solo su richiesta esplicita
+    // ("Elimina account e dati"). L'ospite vede solo la propria area.
+    loadLocalState();
     notify();
   }
 
@@ -947,8 +995,8 @@
 
     usernames.forEach(function (username) { state.deactivated.delete(username); });
     state.analyses = [];
-    safeRemove(KEYS.deactivated);
-    safeRemove(KEYS.analyses);
+    safeRemove(scopedKey('deactivated'));
+    safeRemove(scopedKey('analyses'));
     safeRemove(KEYS.settings);
 
     localIds.forEach(function (id) { removeLocalAnalysis(id); });

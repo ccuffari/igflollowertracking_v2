@@ -165,6 +165,65 @@ test('switchToCloud resta cloud anche se i disattivati si sincronizzano lentamen
   await new Promise((resolve) => setTimeout(resolve, 10));
 });
 
+test('logout e login conservano storico e disattivati quando Firestore non è disponibile', async () => {
+  const reject = () => Promise.reject(Object.assign(new Error('offline'), { code: 'unavailable' }));
+  function makeQuery() {
+    return {
+      orderBy() { return this; },
+      limit() { return this; },
+      startAfter() { return this; },
+      get: reject,
+      doc() { return makeRef(); }
+    };
+  }
+  function makeRef() {
+    return {
+      id: 'cloud-doc',
+      collection() { return makeQuery(); },
+      set: reject,
+      delete: reject,
+      get: reject
+    };
+  }
+  const firebase = {
+    ready: Promise.resolve(),
+    available: true,
+    db: {
+      collection() { return { doc() { return makeRef(); } }; },
+      batch() { return { set() {}, delete() {}, commit: reject }; }
+    },
+    auth: {
+      onAuthStateChanged(callback) { firebase.auth.callback = callback; }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+
+  const { store } = createStore(firebase, { fastTimers: true });
+  await store.ready;
+
+  await store.markDeactivated('ghost');
+  await store.saveAnalysis(report);
+
+  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  await store.markDeactivated('solo_account');
+  await store.saveAnalysis(report);
+
+  firebase.auth.callback(null);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+
+  firebase.auth.callback({ uid: 'user-1', email: 'test@example.com' });
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  const analyses = await store.listAnalyses();
+  assert.equal(analyses.length, 2);
+
+  const deactivated = new Set(store.listDeactivated().map((item) => item.username));
+  assert.ok(deactivated.has('ghost'));
+  assert.ok(deactivated.has('solo_account'));
+});
+
 test('i timeout cloud restano informativi e non degradano la sessione', async () => {
   const logs = { info: [], warn: [], error: [] };
   const hangingQuery = {
