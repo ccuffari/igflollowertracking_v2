@@ -456,6 +456,61 @@ const CLOUD_SEED = {
   'igft.deactivatedMigrated.user-1': '1'
 };
 
+const PASSWORD_USER = {
+  uid: 'user-1',
+  email: 'tester@example.com',
+  displayName: 'Tester',
+  providerData: [{ providerId: 'password' }]
+};
+
+function passwordFirebase(fake) {
+  return {
+    ready: Promise.resolve(),
+    available: true,
+    db: fake.db,
+    auth: {
+      currentUser: PASSWORD_USER,
+      onAuthStateChanged(callback) { callback(PASSWORD_USER); }
+    },
+    serverTimestamp() { return new Date(); }
+  };
+}
+
+test('la password dell\'account crea e sblocca la cassaforte senza frase aggiuntiva', async () => {
+  const fake = createFakeFirestore();
+  const firebase = passwordFirebase(fake);
+
+  const first = createStore(firebase, { seed: CLOUD_SEED });
+  await first.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(first.store.getStatus().vaultSecretKind, 'password');
+
+  const created = await first.store.provideVaultSecret('Password-utente-2026!', { createIfMissing: true });
+  assert.equal(created.ok, true, created.error || 'creazione cassaforte fallita');
+  assert.equal(first.store.getStatus().vaultState, 'unlocked');
+
+  const profile = fake.collections.get('users').get('user-1');
+  assert.ok(profile && profile.keyVault, 'il record keyVault deve essere salvato nel profilo');
+  assert.ok(!JSON.stringify(profile.keyVault).includes('Password-utente-2026!'));
+
+  // Nuovo dispositivo: stessa password, cassaforte sbloccata.
+  const second = createStore(firebase, { seed: CLOUD_SEED });
+  await second.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const unlocked = await second.store.provideVaultSecret('Password-utente-2026!', { createIfMissing: true });
+  assert.equal(unlocked.ok, true, unlocked.error || 'sblocco con password fallito');
+  assert.equal(second.store.getStatus().vaultState, 'unlocked');
+
+  // Password errata: non deve creare una nuova cassaforte né sovrascrivere quella esistente.
+  const third = createStore(firebase, { seed: CLOUD_SEED });
+  await third.store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const wrong = await third.store.provideVaultSecret('Password-sbagliata-2026!', { createIfMissing: true });
+  assert.equal(wrong.ok, false);
+  assert.equal(third.store.getStatus().vaultState, 'locked');
+  assert.ok(fake.collections.get('users').get('user-1').keyVault, 'la cassaforte esistente non va sovrascritta');
+});
+
 test('Firestore è la fonte di verità per storico e disattivati', async () => {
   const fake = createFakeFirestore();
   fake.seed(['users', 'user-1', 'analyses'], 'a1', {

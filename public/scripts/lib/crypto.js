@@ -7,8 +7,10 @@
  *
  * Schema (envelope encryption):
  *   - DEK: chiave AES-GCM 256 casuale, unica per utente.
- *   - KEK: derivata dalla "frase di sicurezza" scelta dall'utente con
- *     PBKDF2-SHA256 (iterazioni elevate, salt casuale).
+ *   - KEK: derivata dalla password di accesso dell'utente (account email/
+ *     password) oppure, per gli account Google che non espongono una password,
+ *     da una password di cifratura scelta dall'utente. Derivazione PBKDF2-SHA256
+ *     con iterazioni elevate e salt casuale.
  *   - La DEK viene "avvolta" (wrapped) con la KEK e il record risultante
  *     (salt, IV, chiave avvolta) resta in users/{uid}.keyVault.
  *   - Ogni valore cifrato usa un IV casuale di 12 byte: AES-GCM non riusa mai
@@ -17,8 +19,8 @@
  *     username con una chiave derivata dalla DEK: opachi e deterministici,
  *     così il server non vede le username ma il client può deduplicare.
  *
- * La frase di sicurezza non viene mai inviata al server ne' salvata in chiaro.
- * Se viene persa i dati cifrati non sono recuperabili da nessuno, incluso il
+ * Il segreto di cifratura non viene mai inviato al server ne' salvato in chiaro.
+ * Se viene perso i dati cifrati non sono recuperabili da nessuno, incluso il
  * gestore della piattaforma.
  */
 (function () {
@@ -104,11 +106,15 @@
     return output;
   }
 
-  async function deriveKek(passphrase, salt, iterations) {
+  function normalizeSecret(secret) {
+    return utf8(String(secret == null ? '' : secret).normalize('NFKC'));
+  }
+
+  async function deriveKek(secret, salt, iterations) {
     var webcrypto = requireCrypto();
     var material = await webcrypto.importKey(
       'raw',
-      utf8(String(passphrase).normalize('NFKC')),
+      normalizeSecret(secret),
       'PBKDF2',
       false,
       ['deriveKey']
@@ -127,10 +133,10 @@
     return webcrypto.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   }
 
-  async function wrapDek(dek, passphrase) {
+  async function wrapDek(dek, secret) {
     var webcrypto = requireCrypto();
     var salt = randomBytes(SALT_BYTES);
-    var kek = await deriveKek(passphrase, salt, PBKDF2_ITERATIONS);
+    var kek = await deriveKek(secret, salt, PBKDF2_ITERATIONS);
     var raw = new Uint8Array(await webcrypto.exportKey('raw', dek));
     var iv = randomBytes(IV_BYTES);
     var wrapped = new Uint8Array(await webcrypto.encrypt({ name: 'AES-GCM', iv: iv }, kek, raw));
@@ -145,24 +151,24 @@
   }
 
   // Crea una nuova DEK e il record da salvare nel profilo utente.
-  async function createVault(passphrase) {
+  async function createVault(secret) {
     var dek = await generateDek();
-    var record = await wrapDek(dek, passphrase);
+    var record = await wrapDek(dek, secret);
     return { dek: dek, record: record };
   }
 
-  // Riporta una DEK esistente sotto una nuova frase di sicurezza.
-  async function rewrapVault(dek, passphrase) {
-    return wrapDek(dek, passphrase);
+  // Riporta una DEK esistente sotto un nuovo segreto (password o frase).
+  async function rewrapVault(dek, secret) {
+    return wrapDek(dek, secret);
   }
 
-  async function unwrapVault(record, passphrase) {
+  async function unwrapVault(record, secret) {
     var webcrypto = requireCrypto();
     if (!record || !record.wrappedKey || !record.salt || !record.iv) {
       throw new Error('Record di cifratura non valido.');
     }
     var iterations = Number(record.iterations) || PBKDF2_ITERATIONS;
-    var kek = await deriveKek(passphrase, fromBase64(record.salt), iterations);
+    var kek = await deriveKek(secret, fromBase64(record.salt), iterations);
     var raw = await webcrypto.decrypt(
       { name: 'AES-GCM', iv: fromBase64(record.iv) },
       kek,

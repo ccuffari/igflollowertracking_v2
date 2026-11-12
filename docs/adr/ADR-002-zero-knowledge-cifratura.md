@@ -26,13 +26,15 @@ esterna).
 | Elemento | Descrizione |
 | --- | --- |
 | **DEK** | chiave AES-GCM 256 casuale, unica per utente |
-| **KEK** | derivata dalla *frase di sicurezza* scelta dall'utente con PBKDF2-SHA256, 310.000 iterazioni, salt casuale 16 byte |
+| **KEK** | derivata dalla *password di accesso* con PBKDF2-SHA256, 310.000 iterazioni, salt casuale 16 byte |
 | **Record `keyVault`** | `{v, kdf, iterations, salt, iv, wrappedKey}` salvato in `users/{uid}`: contiene solo la DEK *avvolta* con la KEK |
 | **Chiave dedupe** | derivata dalla DEK con HKDF-SHA256, usata per HMAC degli username |
 
-La frase di sicurezza non lascia mai il browser e non viene salvata. Non coincide con la
-password di accesso, perché l'accesso con Google non fornisce una password utilizzabile come
-segreto.
+La password di accesso non lascia mai il browser: viene catturata nel form di login, usata per
+derivare la KEK e poi scartata; non viene salvata né inviata al server. Per gli account creati
+con Google, che non espongono una password utilizzabile come segreto, viene chiesta una sola
+volta una *password di cifratura* dedicata. L'origine del segreto è dedotta dal provider
+dell'account (`password` o `google.com`), quindi non viene memorizzata nel record.
 
 ### Dati cifrati
 
@@ -55,12 +57,26 @@ lo storico e applicare i limiti; non contengono username.
 ### Gestione della chiave durante la sessione
 
 - La DEK è tenuta in memoria.
-- Per comodità viene salvata in IndexedDB come `CryptoKey` **non estraibile**, con la chiave
-  dedupe, per utente. Al ritorno sullo stesso browser non serve reinserire la frase; nessuno
-  script può esportarne il valore grezzo.
+- Al login (pagina `login.html` o modale dell'app) la password viene usata per creare o
+  sbloccare la cassaforte. La pagina di login esegue l'operazione prima del redirect e salva la
+  DEK in IndexedDB come `CryptoKey` **non estraibile**, con la chiave dedupe, per utente: al
+  ritorno sullo stesso browser non serve reinserire nulla e nessuno script può esportarne il
+  valore grezzo.
+- Se la cache del dispositivo manca (nuovo browser, dati cancellati) l'app chiede la password
+  dell'account, la verifica con `reauthenticateWithCredential` e poi sblocca la cassaforte.
 - "Blocca i dati" e "Elimina account e dati" rimuovono la cache dal dispositivo.
-- Se IndexedDB non è disponibile, la chiave resta solo in memoria e la frase viene richiesta
+- Se IndexedDB non è disponibile, la chiave resta solo in memoria e la password viene richiesta
   a ogni caricamento.
+
+### Cambio password e recupero
+
+- Il cambio password effettuato *dentro l'app* non è previsto in questa versione: la chiave è
+  legata alla password corrente.
+- La reimpostazione via email cambia la password di accesso ma **non** la KEK: i dati cifrati
+  restano leggibili solo con la vecchia password. È il costo inevitabile dello zero-knowledge e
+  viene comunicato esplicitamente nel form di reset.
+- Gli account Google possono cambiare la password di cifratura dall'area personale senza
+  perdere i dati (re-wrap della stessa DEK).
 
 ### Comportamento in assenza di chiave
 
@@ -82,10 +98,10 @@ quella delle analisi è una tantum per dispositivo (`igft.cryptoMigrated.{uid}`)
 | Alternativa | Perché scartata |
 | --- | --- |
 | Cifratura server-side con chiave gestita da KMS | Il gestore/DB potrebbe comunque decifrare: non soddisfa zero-knowledge. |
-| Derivare la KEK dalla password di Firebase | Non funziona con Google Sign-In e la password non è disponibile nelle sessioni silenziose. |
 | Chiave in chiaro in Firestore | Nessuna protezione reale: chi amministra il DB la leggerebbe. |
-| Chiave solo in memoria, nessuna cache | Massima sicurezza ma UX insostenibile: frase a ogni caricamento. |
+| Chiave solo in memoria, nessuna cache | Massima sicurezza ma UX insostenibile: password a ogni caricamento. |
 | Chiave derivata da un segreto condiviso con il server | Il server tornerebbe a poter decifrare. |
+| Frase di sicurezza separata per tutti gli account | Richiesta esplicita dell'utente di non dover gestire un secondo segreto: si usa la password di accesso; la frase resta solo per gli account Google. |
 
 ## Conseguenze
 
@@ -98,8 +114,10 @@ Positive:
 
 Negative / rischi:
 
-- **Perdita della frase = perdita dei dati**: mitigato con avvisi espliciti, generatore di
-  frase robusta e possibilità di cambiarla senza perdere i dati.
+- **Perdita della password = perdita dei dati**: mitigato con avvisi espliciti nel login e nel
+  reset password. Lo zero-knowledge non consente recupero da parte della piattaforma.
+- **Password deboli**: per le nuove registrazioni l'app richiede almeno 12 caratteri; PBKDF2 a
+  310.000 iterazioni rallenta gli attacchi offline.
 - **Metadati residui** (timestamp, numero di documenti): accettati e documentati.
 - **Copia locale in chiaro** nel browser: è il dispositivo dell'utente, non il database;
   viene rimossa con "Blocca i dati" e "Elimina account e dati".

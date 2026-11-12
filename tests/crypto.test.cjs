@@ -78,6 +78,17 @@ test('cifratura: record salvabile senza chiave in chiaro', async () => {
   assert.ok(record.iterations >= 100000);
 });
 
+test('cifratura: la password di accesso è la chiave predefinita', async () => {
+  const Crypto = createCrypto();
+  const password = 'Password-di-accesso-2026!';
+  const { dek, record } = await Crypto.createVault(password);
+  const ciphertext = await Crypto.encryptText(dek, 'storico utente');
+
+  assert.ok(!JSON.stringify(record).includes(password));
+  assert.equal(await Crypto.decryptText(await Crypto.unwrapVault(record, password), ciphertext), 'storico utente');
+  await assert.rejects(() => Crypto.unwrapVault(record, 'Password-sbagliata-2026!'));
+});
+
 test('cifratura: cambio frase mantiene leggibili i dati esistenti', async () => {
   const Crypto = createCrypto();
   const vault = await Crypto.createVault(PASSPHRASE);

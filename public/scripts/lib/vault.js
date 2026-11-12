@@ -3,12 +3,12 @@
  *
  * La DEK (Data Encryption Key) viene tenuta in memoria e, per comodità,
  * memorizzata in IndexedDB come CryptoKey non estraibile legata al dispositivo.
- * Così al ritorno sullo stesso browser non serve reinserire la frase di
- * sicurezza, ma nessun script può esportarne il valore grezzo.
+ * Così al ritorno sullo stesso browser non serve reinserire la password, ma
+ * nessun script può esportarne il valore grezzo.
  *
  * IndexedDB può non essere disponibile (modalità privata, test, contesti
- * limitati): in quel caso la chiave resta solo in memoria e la frase viene
- * richiesta a ogni caricamento. Nessuna chiave viene mai inviata al server.
+ * limitati): in quel caso la chiave resta solo in memoria e il segreto viene
+ * richiesto a ogni caricamento. Nessuna chiave viene mai inviata al server.
  */
 (function () {
   'use strict';
@@ -103,7 +103,7 @@
       var portable = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
       await writeDeviceKeys(uid, { dek: portable, dedupeKey: dedupeKey });
     } catch (error) {
-      // Solo memoria: la frase verrà richiesta al prossimo caricamento.
+      // Solo memoria: il segreto verrà richiesto al prossimo caricamento.
     }
   }
 
@@ -161,29 +161,29 @@
   }
 
   // Crea una nuova cassaforte e memorizza la chiave sul dispositivo.
-  async function create(passphrase) {
+  async function create(secret) {
     if (!state.uid) throw new Error('Utente non impostato');
-    var vault = await Crypto.createVault(passphrase);
+    var vault = await Crypto.createVault(secret);
     await useDek(state.uid, vault.dek, 'memory');
     await cacheDek(state.uid, vault.dek, state.dedupeKey);
     return vault.record;
   }
 
-  // Sblocca la cassaforte esistente con la frase di sicurezza.
-  async function unlock(record, passphrase) {
+  // Sblocca la cassaforte esistente con il segreto (password o frase).
+  async function unlock(record, secret) {
     if (!state.uid) throw new Error('Utente non impostato');
-    var dek = await Crypto.unwrapVault(record, passphrase);
+    var dek = await Crypto.unwrapVault(record, secret);
     await useDek(state.uid, dek, 'memory');
     await cacheDek(state.uid, dek, state.dedupeKey);
     return true;
   }
 
-  // Cambia la frase di sicurezza mantenendo la stessa DEK (i dati restano
-  // leggibili) e restituisce il nuovo record da salvare nel profilo.
-  async function changePassphrase(record, currentPassphrase, nextPassphrase) {
+  // Cambia il segreto mantenendo la stessa DEK (i dati restano leggibili) e
+  // restituisce il nuovo record da salvare nel profilo.
+  async function changeSecret(record, currentSecret, nextSecret) {
     if (!state.uid) throw new Error('Utente non impostato');
-    var dek = await Crypto.unwrapVault(record, currentPassphrase);
-    var nextRecord = await Crypto.rewrapVault(dek, nextPassphrase);
+    var dek = await Crypto.unwrapVault(record, currentSecret);
+    var nextRecord = await Crypto.rewrapVault(dek, nextSecret);
     await useDek(state.uid, dek, 'memory');
     await cacheDek(state.uid, dek, state.dedupeKey);
     return nextRecord;
@@ -198,7 +198,7 @@
   }
 
   // Blocca i dati: rimuove memoria e cache del dispositivo. Al prossimo accesso
-  // servirà di nuovo la frase di sicurezza.
+  // servirà di nuovo la password (o la frase per gli account Google).
   async function lock() {
     var uid = state.uid;
     detach();
@@ -220,7 +220,7 @@
     getUid: getUid,
     create: create,
     unlock: unlock,
-    changePassphrase: changePassphrase,
+    changeSecret: changeSecret,
     detach: detach,
     lock: lock,
     forget: forget

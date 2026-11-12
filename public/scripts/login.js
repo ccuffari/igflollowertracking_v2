@@ -48,10 +48,41 @@
     $('loginConfirmWrap').hidden = isLogin;
     $('loginPasswordConfirm').required = !isLogin;
     $('loginPassword').autocomplete = isLogin ? 'current-password' : 'new-password';
+    $('loginPassword').minLength = isLogin ? 6 : 12;
+    $('loginPassword').placeholder = isLogin ? 'La tua password' : 'Almeno 12 caratteri';
+    $('loginCryptoHint').hidden = isLogin;
     $('loginSubmit').textContent = isLogin ? 'Accedi' : 'Crea account';
     $('loginTitle').textContent = isLogin ? 'Accedi' : 'Crea un account';
     $('loginForgot').hidden = !isLogin;
     showError($('loginError'), '');
+  }
+
+  // Prepara la cassaforte zero-knowledge sulla pagina di login, dove la
+  // password è disponibile: la DEK viene salvata come CryptoKey non estraibile
+  // in IndexedDB, così la pagina dell'app non deve mai vedere la password.
+  async function prepareVault(user, password) {
+    var Vault = window.IGFTVault;
+    var fb = window.IGFTFirebase;
+    if (!user || !password || !Vault || !Vault.supported || !Vault.supported()) return;
+    if (!fb || !fb.db || typeof fb.serverTimestamp !== 'function') return;
+    try {
+      await Vault.setUser(user.uid);
+      var ref = fb.db.collection('users').doc(user.uid);
+      var snapshot = await ref.get();
+      var data = snapshot && snapshot.exists ? (snapshot.data() || {}) : {};
+      if (data.keyVault) {
+        try {
+          await Vault.unlock(data.keyVault, password);
+        } catch (error) {
+          console.warn('[IGFT] i dati cifrati non si aprono con la password di accesso');
+        }
+      } else {
+        var record = await Vault.create(password, 'password');
+        await ref.set({ keyVault: record, updatedAt: fb.serverTimestamp() }, { merge: true });
+      }
+    } catch (error) {
+      console.warn('[IGFT] preparazione della cifratura non riuscita', error);
+    }
   }
 
   function showUnavailable() {
@@ -101,6 +132,10 @@
           return;
         }
         if (mode === 'register') {
+          if (password.length < 12) {
+            showError($('loginError'), 'Per proteggere la cifratura dei dati la password deve avere almeno 12 caratteri.');
+            return;
+          }
           var confirm = $('loginPasswordConfirm').value;
           if (password !== confirm) {
             showError($('loginError'), 'Le due password non coincidono.');
@@ -112,12 +147,14 @@
         submit.textContent = mode === 'login' ? 'Accesso...' : 'Creazione...';
         try {
           if (mode === 'login') {
-            await fb.auth.signInWithEmailAndPassword(email, password);
+            var signedIn = await fb.auth.signInWithEmailAndPassword(email, password);
+            await prepareVault(signedIn.user, password);
           } else {
             var credential = await fb.auth.createUserWithEmailAndPassword(email, password);
             if (credential && credential.user && credential.user.sendEmailVerification) {
               credential.user.sendEmailVerification().catch(function () {});
             }
+            await prepareVault(credential.user, password);
           }
           goToApp();
         } catch (error) {

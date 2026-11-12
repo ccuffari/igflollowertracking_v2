@@ -124,10 +124,10 @@ Checklist dopo il deploy:
 
 1. Modalità ospite: analisi ZIP, marcatura "Disattivato", ricaricamento pagina → il profilo
    resta marcato (localStorage) e viene escluso dalla nuova analisi.
-2. Registrazione email/password: arrivo email di verifica; login; attivazione della frase di
-   sicurezza; analisi salvata.
-3. Ricaricamento su un altro browser/dispositivo: sblocco con la frase di sicurezza; storico e
-   profili disattivati presenti.
+2. Registrazione email/password: arrivo email di verifica; login; la cassaforte viene creata
+   automaticamente dalla password; analisi salvata.
+3. Ricaricamento su un altro browser/dispositivo: sblocco con la password dell'account; storico
+   e profili disattivati presenti.
 4. In console Firebase i documenti di `analyses` e `deactivated` contengono solo `enc` (testo
    cifrato) e ID opachi: nessuna username in chiaro.
 5. Eliminazione singola analisi, eliminazione account e dati.
@@ -186,7 +186,7 @@ interamente lato client (Web Crypto API) e non richiede servizi aggiuntivi.
 
 | Elemento | Dove | Contenuto |
 | --- | --- | --- |
-| `users/{uid}.keyVault` | Firestore | `{v, kdf, iterations, salt, iv, wrappedKey}`: DEK avvolta con la KEK derivata dalla frase di sicurezza |
+| `users/{uid}.keyVault` | Firestore | `{v, kdf, iterations, salt, iv, wrappedKey}`: DEK avvolta con la KEK derivata dalla password dell'account (o dalla password di cifratura per gli account Google) |
 | `users/{uid}/analyses/{id}` | Firestore | `{createdAt, enc}` |
 | `users/{uid}/analyses/{id}/items/chunk-NNN` | Firestore | `{enc}` (array di username cifrato) |
 | `users/{uid}/deactivated/{docId}` | Firestore | `{enc}` con `docId = HMAC-SHA256(username)` |
@@ -197,11 +197,15 @@ KEK; HKDF-SHA256 per la chiave di deduplicazione. Dettagli e trade-off in
 
 ### Flusso utente
 
-1. Dopo il login l'app chiede di **attivare la cifratura** (frase di sicurezza di almeno 12
-   caratteri, diversa dalla password) oppure di **sbloccare** i dati esistenti.
-2. La chiave sbloccata resta sul dispositivo in IndexedDB come `CryptoKey` non estraibile;
-   "Blocca i dati" la rimuove.
-3. Finché i dati sono bloccati non viene letto né scritto nulla di sensibile sul database: le
+1. Alla registrazione (email/password, minimo 12 caratteri) e a ogni login l'app usa **la
+   password dell'account** per creare o sbloccare la cassaforte: nessuna frase aggiuntiva.
+2. La pagina di login esegue l'operazione prima del redirect e salva la chiave in IndexedDB
+   come `CryptoKey` non estraibile; "Blocca i dati" la rimuove.
+3. Su un nuovo dispositivo l'app chiede la password dell'account, la verifica con Firebase e
+   sblocca i dati.
+4. Gli account Google, che non espongono una password, scelgono una **password di cifratura**
+   dedicata (modificabile dall'area personale).
+5. Finché i dati sono bloccati non viene letto né scritto nulla di sensibile sul database: le
    analisi restano locali e vengono accodate.
 
 ### Deploy delle regole
@@ -218,7 +222,8 @@ chiave sbloccata.
 
 ### Limiti accettati
 
-- Se la frase di sicurezza viene persa, i dati cifrati sono **irrecuperabili**: nessuno,
-  nemmeno l'amministratore, possiede la chiave.
+- Se la password viene persa, i dati cifrati sono **irrecuperabili**: nessuno, nemmeno
+  l'amministratore, possiede la chiave. La reimpostazione via email permette di rientrare
+  nell'account ma non recupera i dati cifrati con la vecchia password.
 - Restano leggibili i metadati minimi: email/nome del profilo, data dell'analisi, ID e numero
   dei documenti.

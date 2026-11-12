@@ -161,7 +161,9 @@
         return 'Cifratura non disponibile: i dati restano solo su questo dispositivo';
       }
       if (status.vaultState === 'locked') {
-        return 'Dati cifrati bloccati: sblocca con la frase di sicurezza per sincronizzarli';
+        return status.vaultSecretKind === 'password'
+          ? 'Dati cifrati bloccati: sblocca con la password dell\'account per sincronizzarli'
+          : 'Dati cifrati bloccati: sblocca con la password di cifratura per sincronizzarli';
       }
       return 'Cifratura non ancora attiva: le analisi restano su questo dispositivo';
     }
@@ -176,22 +178,43 @@
 
   /* ===================== CIFRATURA (ZERO-KNOWLEDGE) ===================== */
 
+  function vaultIsPassword() {
+    return Store.getStatus().vaultSecretKind !== 'passphrase';
+  }
+
+  function vaultUnlockLabel() {
+    return vaultIsPassword() ? 'Password dell\'account' : 'Password di cifratura';
+  }
+
   function vaultIntro() {
+    var password = vaultIsPassword();
     return [
       '<div class="igft-alert igft-alert--info">',
       '  <strong>Zero-knowledge.</strong> Analisi e profili disattivati vengono cifrati nel browser ',
-      '  (AES-GCM) prima di raggiungere Firestore. La chiave è protetta da una <em>frase di sicurezza</em> ',
-      '  che solo tu conosci: né la piattaforma né chi amministra il database può leggere i tuoi dati. ',
+      '  (AES-GCM) prima di raggiungere Firestore. ',
+      password
+        ? '  La chiave è derivata dalla <em>password del tuo account</em>, che non lascia mai il browser: '
+        : '  Per gli account Google, che non espongono una password, la chiave è protetta da una <em>password di cifratura</em> dedicata: ',
+      '  né la piattaforma né chi amministra il database può leggere i tuoi dati. ',
       '  Nel database restano visibili solo email/nome del profilo e i metadati minimi (data dell\'analisi).',
       '</div>'
     ].join('');
   }
 
   function vaultLossWarning() {
+    if (vaultIsPassword()) {
+      return [
+        '<div class="igft-alert igft-alert--warning">',
+        '  <strong>La password è la chiave.</strong> Se la dimentichi e reimposti la password via email, ',
+        '  i dati cifrati non sono più recuperabili: nessuno, nemmeno l\'assistenza, può decifrarli. ',
+        '  Scegli una password lunga e conservala in un gestore di password.',
+        '</div>'
+      ].join('');
+    }
     return [
       '<div class="igft-alert igft-alert--warning">',
-      '  <strong>Conserva la frase.</strong> Non è recuperabile: se la perdi, i dati cifrati non possono ',
-      '  essere decifrati da nessuno, nemmeno dall\'assistenza. Puoi cambiarla in seguito dall\'area personale.',
+      '  <strong>Conserva la password di cifratura.</strong> Non è recuperabile: se la perdi, i dati cifrati ',
+      '  non possono essere decifrati da nessuno, nemmeno dall\'assistenza. Puoi cambiarla in seguito dall\'area personale.',
       '</div>'
     ].join('');
   }
@@ -215,18 +238,23 @@
   function openVaultSetup(notice) {
     ui.view = 'vault';
     vaultPrompted = true;
+    var password = vaultIsPassword();
     openModal([
       '<h2 class="igft-title" id="igftModalTitle">Attiva la cifratura</h2>',
       notice ? '<div class="igft-alert igft-alert--info">' + escapeHtml(notice) + '</div>' : '',
       vaultIntro(),
       '<form id="igftVaultForm" novalidate>',
-      '  <label class="igft-field">Frase di sicurezza (diversa dalla password di accesso)',
-      '    <input type="password" id="igftVaultPass" autocomplete="new-password" minlength="12" required placeholder="Almeno 12 caratteri">',
-      '  </label>',
-      '  <button type="button" class="igft-link" id="igftVaultSuggest">Genera una frase robusta</button>',
-      '  <label class="igft-field">Conferma frase',
-      '    <input type="password" id="igftVaultPass2" autocomplete="new-password" minlength="12" required>',
-      '  </label>',
+      password
+        ? '  <label class="igft-field">Password dell\'account' +
+          '    <input type="password" id="igftVaultPass" autocomplete="current-password" required autofocus>' +
+          '  </label>'
+        : '  <label class="igft-field">Password di cifratura (per gli account Google)' +
+          '    <input type="password" id="igftVaultPass" autocomplete="new-password" minlength="12" required placeholder="Almeno 12 caratteri">' +
+          '  </label>' +
+          '  <button type="button" class="igft-link" id="igftVaultSuggest">Genera una password robusta</button>' +
+          '  <label class="igft-field">Conferma password di cifratura' +
+          '    <input type="password" id="igftVaultPass2" autocomplete="new-password" minlength="12" required>' +
+          '  </label>',
       vaultLossWarning(),
       vaultErrorBox('igftVaultError'),
       '<div class="igft-actions igft-actions--split">',
@@ -240,15 +268,18 @@
     var pass = document.getElementById('igftVaultPass');
     var confirm = document.getElementById('igftVaultPass2');
 
-    document.getElementById('igftVaultSuggest').addEventListener('click', function () {
-      var value = suggestPassphrase();
-      if (!value) return;
-      pass.value = value;
-      confirm.value = value;
-      pass.type = 'text';
-      confirm.type = 'text';
-      toast('Frase generata: annotala in un posto sicuro.', 'info');
-    });
+    var suggest = document.getElementById('igftVaultSuggest');
+    if (suggest) {
+      suggest.addEventListener('click', function () {
+        var value = suggestPassphrase();
+        if (!value) return;
+        pass.value = value;
+        confirm.value = value;
+        pass.type = 'text';
+        confirm.type = 'text';
+        toast('Password generata: annotala in un posto sicuro.', 'info');
+      });
+    }
 
     document.getElementById('igftVaultLater').addEventListener('click', function () {
       closeModal();
@@ -258,13 +289,19 @@
     document.getElementById('igftVaultForm').addEventListener('submit', async function (event) {
       event.preventDefault();
       var value = pass.value;
-      if (value.length < 12) {
-        showVaultError('igftVaultError', 'La frase deve avere almeno 12 caratteri.');
+      if (!value) {
+        showVaultError('igftVaultError', password ? 'Inserisci la password dell\'account.' : 'Inserisci la password di cifratura.');
         return;
       }
-      if (value !== confirm.value) {
-        showVaultError('igftVaultError', 'Le due frasi non coincidono.');
-        return;
+      if (!password) {
+        if (value.length < 12) {
+          showVaultError('igftVaultError', 'La password di cifratura deve avere almeno 12 caratteri.');
+          return;
+        }
+        if (value !== confirm.value) {
+          showVaultError('igftVaultError', 'Le due password non coincidono.');
+          return;
+        }
       }
       var submit = document.getElementById('igftVaultSubmit');
       submit.disabled = true;
@@ -284,12 +321,15 @@
   function openVaultUnlock(notice) {
     ui.view = 'vault';
     vaultPrompted = true;
+    var label = vaultUnlockLabel();
     openModal([
       '<h2 class="igft-title" id="igftModalTitle">Sblocca i tuoi dati</h2>',
       notice ? '<div class="igft-alert igft-alert--info">' + escapeHtml(notice) + '</div>' : '',
-      '<p class="igft-muted">Le analisi salvate e i profili disattivati sono cifrati. Inserisci la frase di sicurezza per decifrarli su questo dispositivo.</p>',
+      '<p class="igft-muted">Le analisi salvate e i profili disattivati sono cifrati. Inserisci ' +
+        (vaultIsPassword() ? 'la password del tuo account' : 'la password di cifratura') +
+        ' per decifrarli su questo dispositivo.</p>',
       '<form id="igftUnlockForm" novalidate>',
-      '  <label class="igft-field">Frase di sicurezza',
+      '  <label class="igft-field">' + label,
       '    <input type="password" id="igftUnlockPass" autocomplete="current-password" required autofocus>',
       '  </label>',
       vaultErrorBox('igftUnlockError'),
@@ -306,7 +346,7 @@
       event.preventDefault();
       var value = document.getElementById('igftUnlockPass').value;
       if (!value) {
-        showVaultError('igftUnlockError', 'Inserisci la frase di sicurezza.');
+        showVaultError('igftUnlockError', 'Inserisci ' + (vaultIsPassword() ? 'la password dell\'account.' : 'la password di cifratura.'));
         return;
       }
       var submit = document.getElementById('igftUnlockSubmit');
@@ -316,7 +356,7 @@
       submit.disabled = false;
       submit.textContent = 'Sblocca';
       if (!result.ok) {
-        showVaultError('igftUnlockError', result.error || 'Frase non corretta.');
+        showVaultError('igftUnlockError', result.error || 'Password non corretta.');
         return;
       }
       closeModal();
@@ -327,16 +367,16 @@
   function openChangePassphrase() {
     ui.view = 'vault';
     openModal([
-      '<h2 class="igft-title" id="igftModalTitle">Cambia la frase di sicurezza</h2>',
-      '<p class="igft-muted">I dati restano gli stessi: cambia solo la frase che protegge la chiave.</p>',
+      '<h2 class="igft-title" id="igftModalTitle">Cambia la password di cifratura</h2>',
+      '<p class="igft-muted">I dati restano gli stessi: cambia solo la password che protegge la chiave.</p>',
       '<form id="igftChangeForm" novalidate>',
-      '  <label class="igft-field">Frase attuale',
+      '  <label class="igft-field">Password di cifratura attuale',
       '    <input type="password" id="igftChangeCurrent" autocomplete="current-password" required>',
       '  </label>',
-      '  <label class="igft-field">Nuova frase',
+      '  <label class="igft-field">Nuova password di cifratura',
       '    <input type="password" id="igftChangeNext" autocomplete="new-password" minlength="12" required>',
       '  </label>',
-      '  <label class="igft-field">Conferma nuova frase',
+      '  <label class="igft-field">Conferma nuova password',
       '    <input type="password" id="igftChangeNext2" autocomplete="new-password" minlength="12" required>',
       '  </label>',
       vaultErrorBox('igftChangeError'),
@@ -355,23 +395,23 @@
       var next = document.getElementById('igftChangeNext').value;
       var again = document.getElementById('igftChangeNext2').value;
       if (next.length < 12) {
-        showVaultError('igftChangeError', 'La nuova frase deve avere almeno 12 caratteri.');
+        showVaultError('igftChangeError', 'La nuova password deve avere almeno 12 caratteri.');
         return;
       }
       if (next !== again) {
-        showVaultError('igftChangeError', 'Le due nuove frasi non coincidono.');
+        showVaultError('igftChangeError', 'Le due nuove password non coincidono.');
         return;
       }
       var submit = document.getElementById('igftChangeSubmit');
       submit.disabled = true;
-      var result = await Store.changeVaultPassphrase(current, next);
+      var result = await Store.changeVaultSecret(current, next, { source: 'passphrase' });
       submit.disabled = false;
       if (!result.ok) {
         showVaultError('igftChangeError', result.error || 'Cambio non riuscito.');
         return;
       }
-      renderAccountPanel('Frase di sicurezza aggiornata.');
-      toast('Frase di sicurezza aggiornata.', 'success');
+      renderAccountPanel('Password di cifratura aggiornata.');
+      toast('Password di cifratura aggiornata.', 'success');
     });
   }
 
@@ -385,12 +425,15 @@
       ].join('');
     }
     if (status.vaultState === 'unlocked') {
+      var password = status.vaultSecretKind !== 'passphrase';
       return [
         '<div class="igft-vault">',
         '  <div class="igft-vault__title">Cifratura dei dati</div>',
-        '  <div class="igft-muted">Attiva. Analisi e profili disattivati sono cifrati end-to-end; la chiave è presente su questo dispositivo.</div>',
+        '  <div class="igft-muted">Attiva. Analisi e profili disattivati sono cifrati end-to-end; ' +
+          (password ? 'la chiave è derivata dalla password del tuo account.' : 'la chiave è protetta dalla tua password di cifratura.') +
+          ' La chiave è presente su questo dispositivo.</div>',
         '  <div class="igft-actions igft-actions--split">',
-        '    <button type="button" class="igft-link" id="igftChangePass">Cambia frase</button>',
+        password ? '' : '    <button type="button" class="igft-link" id="igftChangePass">Cambia password di cifratura</button>',
         '    <button type="button" class="igft-link" id="igftLockVault">Blocca i dati</button>',
         '  </div>',
         '</div>'
@@ -400,7 +443,9 @@
       return [
         '<div class="igft-vault">',
         '  <div class="igft-vault__title">Cifratura dei dati</div>',
-        '  <div class="igft-alert igft-alert--warning">I tuoi dati sono cifrati e bloccati su questo dispositivo.</div>',
+        '  <div class="igft-alert igft-alert--warning">I tuoi dati sono cifrati e bloccati su questo dispositivo. ' +
+          (status.vaultSecretKind === 'password' ? 'Inserisci la password dell\'account per riaprirli.' : 'Inserisci la password di cifratura per riaprirli.') +
+          '</div>',
         '  <button type="button" class="btn igft-primary igft-small" id="igftUnlockVault">Sblocca i dati</button>',
         '</div>'
       ].join('');
@@ -429,7 +474,8 @@
       lock.addEventListener('click', async function () {
         var confirmed = await confirmAction({
           title: 'Bloccare i dati su questo dispositivo?',
-          message: 'La chiave verrà rimossa da questo browser. Per riaprire i dati servirà la frase di sicurezza.',
+          message: 'La chiave verrà rimossa da questo browser. Per riaprire i dati servirà ' +
+            (vaultIsPassword() ? 'la password dell\'account.' : 'la password di cifratura.'),
           confirmLabel: 'Blocca'
         });
         if (confirmed === null) return;
@@ -547,11 +593,12 @@
       '    <input type="email" id="igftEmail" name="email" autocomplete="email" required placeholder="nome@esempio.it">',
       '  </label>',
       '  <label class="igft-field">Password',
-      '    <input type="password" id="igftPassword" name="password" autocomplete="' + (isLogin ? 'current-password' : 'new-password') + '" required minlength="6" placeholder="Almeno 6 caratteri">',
+      '    <input type="password" id="igftPassword" name="password" autocomplete="' + (isLogin ? 'current-password' : 'new-password') + '" required minlength="' + (isLogin ? '6' : '12') + '" placeholder="' + (isLogin ? 'La tua password' : 'Almeno 12 caratteri') + '">',
       '  </label>',
       !isLogin ? [
+        '  <p class="igft-muted igft-small">La password protegge anche la cifratura zero-knowledge dei tuoi dati: usane una lunga e difficile da indovinare.</p>',
         '  <label class="igft-field">Conferma password',
-        '    <input type="password" id="igftPasswordConfirm" name="passwordConfirm" autocomplete="new-password" required minlength="6">',
+        '    <input type="password" id="igftPasswordConfirm" name="passwordConfirm" autocomplete="new-password" required minlength="12">',
         '  </label>'
       ].join('') : '',
       '  <div id="igftAuthError" class="igft-alert igft-alert--error" hidden></div>',
@@ -616,6 +663,10 @@
       return;
     }
     if (!isLogin) {
+      if (password.length < 12) {
+        showAuthError('Per proteggere la cifratura dei dati la password deve avere almeno 12 caratteri.');
+        return;
+      }
       var confirm = document.getElementById('igftPasswordConfirm').value;
       if (password !== confirm) {
         showAuthError('Le due password non coincidono.');
@@ -630,6 +681,9 @@
     try {
       if (isLogin) {
         await fb.auth.signInWithEmailAndPassword(email, password);
+        // La password di login è la chiave di cifratura: la passiamo subito
+        // allo store (resta solo in memoria) per aprire la cassaforte.
+        Store.provideVaultSecret(password, { createIfMissing: true, source: 'password' }).catch(function () {});
         closeModal();
         toast('Accesso effettuato.', 'success');
       } else {
@@ -637,6 +691,7 @@
         if (credential && credential.user && credential.user.sendEmailVerification) {
           credential.user.sendEmailVerification().catch(function () {});
         }
+        Store.provideVaultSecret(password, { createIfMissing: true, source: 'password' }).catch(function () {});
         closeModal();
         toast('Account creato. Ti abbiamo inviato un\'email di verifica.', 'success');
       }

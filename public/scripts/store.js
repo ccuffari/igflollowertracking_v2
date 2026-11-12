@@ -15,11 +15,12 @@
  *   users/{uid}/analyses/{id}/items/*    -> chunk di username CIFRATI
  *
  * Zero-knowledge: analisi e profili disattivati sono cifrati nel browser con
- * AES-GCM tramite la chiave derivata dalla frase di sicurezza dell'utente
- * (`public/scripts/lib/crypto.js` + `vault.js`). Firestore non contiene mai
- * username in chiaro e la piattaforma non possiede la chiave. Restano in
- * chiaro solo i metadati indispensabili all'ordinamento (timestamp di
- * creazione, ID documento, numero di documenti).
+ * AES-GCM tramite la chiave derivata dalla password di accesso dell'utente
+ * (per gli account Google, che non espongono una password, da una password di
+ * cifratura dedicata) (`public/scripts/lib/crypto.js` + `vault.js`). Firestore
+ * non contiene mai username in chiaro e la piattaforma non possiede la chiave.
+ * Restano in chiaro solo i metadati indispensabili all'ordinamento (timestamp
+ * di creazione, ID documento, numero di documenti).
  *
  * Il file ZIP e la lista dei follower non vengono mai salvati.
  */
@@ -85,11 +86,16 @@
     // 'unsupported' | 'absent' | 'locked' | 'unlocked'
     vaultState: 'absent',
     vaultRecord: null,
-    vaultError: null
+    vaultError: null,
+    profileLoaded: false
   };
 
   var listeners = new Set();
   var suppressNotify = false;
+
+  // Segreto (password di accesso o frase Google) fornito al momento del login,
+  // tenuto solo in memoria finché il profilo con `keyVault` non è disponibile.
+  var pendingSecret = null;
 
   // Stato della sincronizzazione in background. Un timeout è un rallentamento,
   // non un errore: si registra una sola riga informativa, si sospendono i
@@ -240,6 +246,37 @@
 
   function vaultUnsupportedError() {
     return 'La cifratura non è disponibile in questo browser: i dati restano solo su questo dispositivo.';
+  }
+
+  // Gli account email/password possono usare direttamente la password di
+  // accesso come segreto di cifratura. Gli account Google non espongono una
+  // password: per loro serve una password di cifratura dedicata.
+  function accountUsesPassword(user) {
+    var providers = (user && user.providerData) || [];
+    for (var i = 0; i < providers.length; i++) {
+      if (providers[i] && providers[i].providerId === 'password') return true;
+    }
+    return false;
+  }
+
+  function vaultSecretKind() {
+    return state.user && accountUsesPassword(state.user) ? 'password' : 'passphrase';
+  }
+
+  // Verifica la password dell'account prima di usarla come chiave: evita di
+  // sbloccare con una password sbagliata o di creare una cassaforte errata.
+  async function verifyAccountPassword(password) {
+    var fb = firebaseState();
+    var user = fb && fb.auth ? fb.auth.currentUser : null;
+    if (!user || !user.email || typeof fb.emailCredential !== 'function') {
+      return { ok: true };
+    }
+    try {
+      await user.reauthenticateWithCredential(fb.emailCredential(user.email, password));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: 'Password dell\'account non corretta.' };
+    }
   }
 
   function userDoc() {
@@ -525,7 +562,7 @@
     if (!doc) throw new Error('Utente non autenticato');
     var keys = vaultKeys();
     if (!keys) {
-      var locked = new Error('Dati cifrati: inserisci la frase di sicurezza per sincronizzare su Firestore.');
+      var locked = new Error('Dati cifrati: inserisci la password per sincronizzare su Firestore.');
       locked.code = 'igft/vault-locked';
       throw locked;
     }
@@ -1312,7 +1349,10 @@
     if (!doc) return null;
     var snapshot = await withTimeout(doc.get(), 12000, 'Lettura profilo da Firestore troppo lenta.');
     var data = snapshot && snapshot.exists ? (snapshot.data() || {}) : {};
-    state.vaultRecord = data.keyVault || null;
+    // Non sovrascrivere con `null` una cassaforte appena creata in locale: una
+    // lettura partita prima della scrittura potrebbe tornare con dati vecchi.
+    state.vaultRecord = data.keyVault || state.vaultRecord || null;
+    state.profileLoaded = true;
     updateVaultState();
     return data;
   }
@@ -1333,6 +1373,7 @@
 
     state.vaultRecord = null;
     state.vaultError = null;
+    state.profileLoaded = false;
     if (Vault && typeof Vault.setUser === 'function') {
       try {
         await Vault.setUser(user.uid);
@@ -1340,6 +1381,11 @@
         console.warn('[IGFT] impossibile ripristinare la chiave sul dispositivo');
       }
     }
+    updateVaultState();
+
+    // Se il login ha fornito la password (o la frase Google), la usiamo subito
+    // per aprire la cassaforte senza chiedere nulla in più all'utente.
+    await applyPendingVaultSecret();
     updateVaultState();
 
     state.storage = 'cloud';
@@ -1369,6 +1415,9 @@
       //    operazione che determina lo stato della sessione.
       try {
         await withTimeout(readCloudProfile(), 15000, 'Lettura profilo da Firestore troppo lenta.');
+        // La password del login può essere arrivata dopo l'avvio del sync:
+        // applicala ora che il record `keyVault` è disponibile.
+        await applyPendingVaultSecret();
         if (guard()) {
           state.cloudError = null;
           state.storage = 'cloud';
@@ -1493,6 +1542,8 @@
     state.vaultRecord = null;
     state.vaultState = 'absent';
     state.vaultError = null;
+    state.profileLoaded = false;
+    pendingSecret = null;
     if (Vault && typeof Vault.detach === 'function') Vault.detach();
     if (cloudSync.retryTimer) {
       clearTimeout(cloudSync.retryTimer);
@@ -1519,17 +1570,84 @@
 
   /* ======================= CIFRATURA (ZERO-KNOWLEDGE) ======================= */
 
+  // Fornisce il segreto del login (password dell'account per gli account
+  // email/password, password di cifratura per gli account Google). Resta solo
+  // in memoria finché il profilo con `keyVault` non è disponibile.
+  async function provideVaultSecret(secret, options) {
+    var value = String(secret == null ? '' : secret);
+    if (!value) return { ok: false, error: 'Inserisci la password.' };
+    pendingSecret = {
+      secret: value,
+      source: options && options.source ? options.source : vaultSecretKind(),
+      createIfMissing: !!(options && options.createIfMissing)
+    };
+    return applyPendingVaultSecret();
+  }
+
+  async function applyPendingVaultSecret() {
+    var pending = pendingSecret;
+    if (!pending || !state.user) return { ok: false, pending: true };
+    if (!hasCloud()) return { ok: false, pending: true };
+    if (!state.profileLoaded) {
+      try {
+        await readCloudProfile();
+      } catch (error) {
+        return { ok: false, pending: true, error: errorMessage(error) };
+      }
+    }
+    if (!state.user || pendingSecret !== pending) return { ok: false, pending: true };
+
+    try {
+      if (state.vaultRecord) {
+        await Vault.unlock(state.vaultRecord, pending.secret);
+      } else if (pending.createIfMissing) {
+        var record = await Vault.create(pending.secret);
+        await withTimeout(
+          userDoc().set({ keyVault: record, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
+          12000,
+          'Salvataggio della chiave su Firestore troppo lento.'
+        );
+        state.vaultRecord = record;
+      } else {
+        return { ok: false, error: 'La cifratura non è attiva su questo account.' };
+      }
+      pendingSecret = null;
+      state.vaultState = 'unlocked';
+      state.vaultError = null;
+      notify();
+      syncCloudInBackground(state.user.uid, true);
+      return { ok: true };
+    } catch (error) {
+      pendingSecret = null;
+      updateVaultState();
+      state.vaultError = errorMessage(error);
+      notify();
+      return {
+        ok: false,
+        error: pending.source === 'password'
+          ? 'La password non corrisponde ai dati cifrati di questo account.'
+          : 'Password di cifratura non corretta.'
+      };
+    }
+  }
+
   // Attiva la cifratura per l'account: crea la chiave e la salva avvolta nel
   // profilo. Da questo momento analisi e disattivati vengono cifrati.
-  async function setupVault(passphrase) {
+  async function setupVault(secret, options) {
     if (!state.user) return { ok: false, error: 'Accedi per attivare la cifratura.' };
     if (!cryptoSupported()) return { ok: false, error: vaultUnsupportedError() };
     if (state.vaultRecord) return { ok: false, error: 'La cifratura è già attiva su questo account.' };
     if (!hasCloud()) return { ok: false, error: 'Connettiti a Firestore per attivare la cifratura.' };
 
-    var value = String(passphrase || '');
-    if (value.length < 12) {
-      return { ok: false, error: 'Usa una frase di sicurezza di almeno 12 caratteri.' };
+    var kind = vaultSecretKind();
+    var value = String(secret || '');
+    if (!value) return { ok: false, error: 'Inserisci la password.' };
+    if (kind === 'passphrase' && value.length < 12) {
+      return { ok: false, error: 'Usa una password di cifratura di almeno 12 caratteri.' };
+    }
+    if (kind === 'password' && !(options && options.verified)) {
+      var verified = await verifyAccountPassword(value);
+      if (!verified.ok) return verified;
     }
 
     var record;
@@ -1559,25 +1677,40 @@
     }
   }
 
-  async function unlockVault(passphrase) {
+  async function unlockVault(secret, options) {
     if (!state.user) return { ok: false, error: 'Accedi per sbloccare i dati.' };
     if (state.vaultState === 'unsupported') return { ok: false, error: vaultUnsupportedError() };
     if (!state.vaultRecord) return { ok: false, error: 'La cifratura non è ancora attiva su questo account.' };
 
+    var kind = vaultSecretKind();
+    var value = String(secret || '');
+    if (!value) {
+      return { ok: false, error: kind === 'password' ? 'Inserisci la password dell\'account.' : 'Inserisci la password di cifratura.' };
+    }
+    if (kind === 'password' && !(options && options.verified)) {
+      var verified = await verifyAccountPassword(value);
+      if (!verified.ok) return verified;
+    }
+
     try {
-      await Vault.unlock(state.vaultRecord, String(passphrase || ''));
+      await Vault.unlock(state.vaultRecord, value);
       state.vaultState = 'unlocked';
       state.vaultError = null;
       notify();
       syncCloudInBackground(state.user.uid, true);
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: 'Frase di sicurezza non corretta.' };
+      return {
+        ok: false,
+        error: kind === 'password'
+          ? 'Password dell\'account non corretta.'
+          : 'Password di cifratura non corretta.'
+      };
     }
   }
 
   // Blocca i dati su questo dispositivo: rimuove la chiave dalla memoria e
-  // dalla cache locale. Per riaprirli servirà la frase di sicurezza.
+  // dalla cache locale. Per riaprirli servirà di nuovo la password.
   async function lockVault() {
     if (Vault && typeof Vault.lock === 'function') {
       await Vault.lock();
@@ -1587,18 +1720,25 @@
     return { ok: true };
   }
 
-  async function changeVaultPassphrase(currentPassphrase, nextPassphrase) {
+  async function changeVaultSecret(currentSecret, nextSecret, options) {
     if (!state.user || !state.vaultRecord) {
       return { ok: false, error: 'La cifratura non è attiva su questo account.' };
     }
-    if (String(nextPassphrase || '').length < 12) {
-      return { ok: false, error: 'La nuova frase deve avere almeno 12 caratteri.' };
+    var kind = (options && options.source) || vaultSecretKind();
+    if (kind !== 'passphrase') {
+      return {
+        ok: false,
+        error: 'La chiave è legata alla password di accesso: per cambiarla usa le impostazioni dell\'account.'
+      };
+    }
+    if (String(nextSecret || '').length < 12) {
+      return { ok: false, error: 'La nuova password di cifratura deve avere almeno 12 caratteri.' };
     }
     try {
-      var nextRecord = await Vault.changePassphrase(
+      var nextRecord = await Vault.changeSecret(
         state.vaultRecord,
-        String(currentPassphrase || ''),
-        String(nextPassphrase)
+        String(currentSecret || ''),
+        String(nextSecret)
       );
       await withTimeout(
         userDoc().set({ keyVault: nextRecord, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
@@ -1609,7 +1749,7 @@
       notify();
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: 'Frase di sicurezza attuale non corretta.' };
+      return { ok: false, error: 'Password di cifratura attuale non corretta.' };
     }
   }
 
@@ -1750,6 +1890,7 @@
       deactivatedCount: state.deactivated.size,
       analysesCount: state.analyses.length,
       vaultState: state.vaultState,
+      vaultSecretKind: vaultSecretKind(),
       vaultSource: Vault && typeof Vault.getSource === 'function' ? Vault.getSource() : null,
       vaultError: state.vaultError,
       encryption: state.vaultState === 'unlocked' ? 'zero-knowledge' : 'pending'
@@ -1800,9 +1941,10 @@
     deleteAllData: deleteAllData,
     setAutoSave: setAutoSave,
     retryCloud: retryCloud,
+    provideVaultSecret: provideVaultSecret,
     setupVault: setupVault,
     unlockVault: unlockVault,
     lockVault: lockVault,
-    changeVaultPassphrase: changeVaultPassphrase
+    changeVaultSecret: changeVaultSecret
   };
 })();
