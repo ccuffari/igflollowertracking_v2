@@ -267,8 +267,9 @@
 
   function vaultSecretKind() {
     if (!state.user) return 'none';
+    if (state.vaultRecord && state.vaultRecord.autoSecret) return 'managed';
     if (accountUsesPassword(state.user)) return 'password';
-    if (state.vaultRecord && !state.vaultRecord.autoSecret) return 'passphrase';
+    if (state.vaultRecord) return 'passphrase';
     return 'managed';
   }
 
@@ -280,7 +281,7 @@
   // segreto che avvolge la DEK è generato dall'app e salvato nel profilo,
   // quindi ogni dispositivo può decifrare automaticamente.
   async function ensureAutomaticVault() {
-    if (!state.user || !isAutomaticAccount(state.user)) return { ok: false, auto: false };
+    if (!state.user) return { ok: false, auto: false };
     if (!cryptoSupported()) return { ok: false, auto: true, error: vaultUnsupportedError() };
     if (!hasCloud()) return { ok: false, auto: true };
     if (vaultUnlocked()) return { ok: true, auto: true };
@@ -294,13 +295,9 @@
     if (!state.user) return { ok: false, auto: true };
     if (vaultUnlocked()) return { ok: true, auto: true };
 
-    if (state.vaultRecord) {
-      if (!state.vaultRecord.autoSecret) {
-        // Cassaforte legacy: serve una sola volta la vecchia password di
-        // cifratura per migrarla all'apertura automatica.
-        updateVaultState();
-        return { ok: false, auto: true, legacy: true };
-      }
+    // Un account collegato a più provider può avere una cassaforte automatica
+    // anche se ora accede con email/password: il record `autoSecret` vince.
+    if (state.vaultRecord && state.vaultRecord.autoSecret) {
       try {
         await Vault.unlock(state.vaultRecord, state.vaultRecord.autoSecret);
         state.vaultState = 'unlocked';
@@ -313,6 +310,18 @@
         notify();
         return { ok: false, auto: true, error: state.vaultError };
       }
+    }
+
+    if (!isAutomaticAccount(state.user)) {
+      updateVaultState();
+      return { ok: false, auto: false };
+    }
+
+    if (state.vaultRecord) {
+      // Cassaforte legacy: serve una sola volta la vecchia password di
+      // cifratura per migrarla all'apertura automatica.
+      updateVaultState();
+      return { ok: false, auto: true, legacy: true };
     }
 
     try {
