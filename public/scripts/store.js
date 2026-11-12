@@ -318,12 +318,46 @@
     }
 
     if (state.vaultRecord) {
-      // Cassaforte legacy: serve una sola volta la vecchia password di
-      // cifratura per migrarla all'apertura automatica.
-      updateVaultState();
-      return { ok: false, auto: true, legacy: true };
+      // Cassaforte legacy: se non ci sono dati cifrati con la vecchia chiave
+      // viene sostituita subito, senza chiedere nulla. Se invece ci sono dati
+      // serve una sola volta la vecchia password di cifratura per migrarla.
+      var hasData = await cloudHasSensitiveData();
+      if (hasData) {
+        updateVaultState();
+        return { ok: false, auto: true, legacy: true };
+      }
     }
 
+    return createManagedVault();
+  }
+
+  // Verifica se l'account ha analisi o profili disattivati sul cloud. In caso
+  // di dubbio (errore di rete) risponde `true`: non si sovrascrive mai una
+  // chiave che potrebbe proteggere dati esistenti.
+  async function cloudHasSensitiveData() {
+    var doc = userDoc();
+    if (!doc) return true;
+    try {
+      var analyses = await withTimeout(
+        doc.collection('analyses').limit(1).get(),
+        8000,
+        'Verifica dei dati esistenti troppo lenta.'
+      );
+      if (analyses && analyses.docs && analyses.docs.length) return true;
+      var deactivated = await withTimeout(
+        doc.collection('deactivated').limit(1).get(),
+        8000,
+        'Verifica dei dati esistenti troppo lenta.'
+      );
+      return !!(deactivated && deactivated.docs && deactivated.docs.length);
+    } catch (error) {
+      return true;
+    }
+  }
+
+  // Crea una cassaforte automatica: segreto casuale gestito dall'app, salvato
+  // nel profilo insieme alla DEK avvolta.
+  async function createManagedVault() {
     try {
       var secret = Crypto.randomSecret();
       var record = await Vault.create(secret);

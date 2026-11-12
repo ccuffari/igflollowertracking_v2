@@ -406,6 +406,13 @@ function createFakeFirestore(options) {
         }));
         return Promise.resolve({ docs });
       },
+      limit(n) {
+        return {
+          get() {
+            return collectionRef(path).get().then((result) => ({ docs: result.docs.slice(0, n) }));
+          }
+        };
+      },
       orderBy(field, direction) { return queryRef(path, field, direction); }
     };
   }
@@ -741,6 +748,7 @@ test('le vecchie cassette Google vengono migrate all\'apertura automatica', asyn
     displayName: GOOGLE_USER.displayName,
     keyVault: legacy.record
   });
+  fake.seed(['users', 'user-1', 'deactivated'], 'a'.repeat(64), { enc: 'iv.ciphertext' });
 
   const { store } = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
   await store.ready;
@@ -764,4 +772,25 @@ test('le vecchie cassette Google vengono migrate all\'apertura automatica', asyn
   await new Promise((resolve) => setTimeout(resolve, 1500));
   assert.equal(second.store.getStatus().vaultSecretKind, 'managed');
   assert.equal(second.store.getStatus().vaultState, 'unlocked');
+});
+
+test('una cassaforte legacy senza dati viene sostituita automaticamente', async () => {
+  const fake = createFakeFirestore();
+  const helper = createStore();
+  const legacy = await helper.context.IGFTCrypto.createVault(PASSPHRASE);
+  fake.seed(['users'], 'user-1', {
+    email: GOOGLE_USER.email,
+    displayName: GOOGLE_USER.displayName,
+    keyVault: legacy.record
+  });
+
+  const { store } = createStore(googleFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  assert.equal(store.getStatus().vaultSecretKind, 'managed');
+  assert.equal(store.getStatus().vaultState, 'unlocked');
+  const profile = fake.collections.get('users').get('user-1');
+  assert.ok(profile.keyVault.autoSecret);
+  assert.notEqual(profile.keyVault.wrappedKey, legacy.record.wrappedKey);
 });

@@ -85,7 +85,8 @@ lo storico e applicare i limiti; non contengono username.
 - Gli account Google non hanno una password di cifratura da gestire: la chiave è automatica.
 - I record `keyVault` delle versioni precedenti per gli account Google (protetti da una password
   scelta dall'utente) vengono migrati automaticamente al primo e unico sblocco: la stessa DEK
-  viene ri-avvolta con un `autoSecret` generato dall'app.
+  viene ri-avvolta con un `autoSecret` generato dall'app. Se non ci sono dati cifrati con la
+  vecchia chiave, la cassaforte legacy viene sostituita subito senza chiedere nulla.
 
 ### Comportamento in assenza di chiave
 

@@ -205,7 +205,9 @@ KEK; HKDF-SHA256 per la chiave di deduplicazione. Dettagli e trade-off in
    `CryptoKey` non estraibile.
 3. Account Google: l'app genera un `autoSecret` casuale, lo usa come KEK e lo salva nel record
    `keyVault`; la cassaforte si apre da sola su ogni dispositivo. I dati restano cifrati nel
-   database, ma questa modalità non è zero-knowledge in senso stretto.
+   database, ma questa modalità non è zero-knowledge in senso stretto. Le cassette legacy
+   senza dati vengono sostituite automaticamente; se contengono dati serve un ultimo sblocco
+   con la vecchia password di cifratura, poi la migrazione è automatica.
 4. Finché la chiave non è disponibile non viene letto né scritto nulla di sensibile sul
    database: le analisi restano locali e vengono accodate, poi sincronizzate automaticamente.
 
