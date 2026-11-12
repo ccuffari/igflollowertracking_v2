@@ -8,10 +8,18 @@
  *   allineata al cloud appena la connessione torna disponibile.
  *
  * Dati salvati:
- *   users/{uid}                        -> profilo (email, nome) e impostazioni
- *   users/{uid}/deactivated/{username} -> profili marcati come disattivati
- *   users/{uid}/analyses/{id}          -> metadati dell'analisi
- *   users/{uid}/analyses/{id}/items/*  -> chunk degli username "non ti seguono"
+ *   users/{uid}                          -> profilo (email, nome), impostazioni e
+ *                                           record della chiave cifrata (keyVault)
+ *   users/{uid}/deactivated/{id-opaco}   -> profili disattivati CIFRATI
+ *   users/{uid}/analyses/{id}            -> metadati CIFRATI dell'analisi
+ *   users/{uid}/analyses/{id}/items/*    -> chunk di username CIFRATI
+ *
+ * Zero-knowledge: analisi e profili disattivati sono cifrati nel browser con
+ * AES-GCM tramite la chiave derivata dalla frase di sicurezza dell'utente
+ * (`public/scripts/lib/crypto.js` + `vault.js`). Firestore non contiene mai
+ * username in chiaro e la piattaforma non possiede la chiave. Restano in
+ * chiaro solo i metadati indispensabili all'ordinamento (timestamp di
+ * creazione, ID documento, numero di documenti).
  *
  * Il file ZIP e la lista dei follower non vengono mai salvati.
  */
@@ -19,11 +27,14 @@
   'use strict';
 
   var Core = window.IGFTCore;
+  var Crypto = window.IGFTCrypto || null;
+  var Vault = window.IGFTVault || null;
 
   var KEYS = {
     settings: 'igft.settings.v1',
     migratedPrefix: 'igft.migrated.',
-    deactivatedMigratedPrefix: 'igft.deactivatedMigrated.'
+    deactivatedMigratedPrefix: 'igft.deactivatedMigrated.',
+    cryptoMigratedPrefix: 'igft.cryptoMigrated.'
   };
 
   // Ogni account ha il proprio spazio locale (`igft.u.{uid}.*`), l'ospite usa
@@ -69,7 +80,12 @@
     error: null,
     cloudError: null,
     cloudSync: 'idle', // 'idle' | 'ok' | 'pending' | 'slow' | 'error'
-    cloudSyncReason: null
+    cloudSyncReason: null,
+    // Stato della cifratura per l'utente autenticato:
+    // 'unsupported' | 'absent' | 'locked' | 'unlocked'
+    vaultState: 'absent',
+    vaultRecord: null,
+    vaultError: null
   };
 
   var listeners = new Set();
@@ -201,6 +217,29 @@
 
   function isCloud() {
     return hasCloud() && state.storage === 'cloud';
+  }
+
+  function cryptoSupported() {
+    return !!(Crypto && typeof Crypto.isSupported === 'function' && Crypto.isSupported());
+  }
+
+  function vaultKeys() {
+    return Vault && typeof Vault.getKeys === 'function' ? Vault.getKeys() : null;
+  }
+
+  function vaultUnlocked() {
+    return !!vaultKeys();
+  }
+
+  // I dati sensibili possono essere letti/scritti sul cloud solo con la chiave
+  // disponibile. In caso contrario restano nella cache locale (mai in chiaro
+  // sul database) e vengono sincronizzati appena l'utente sblocca i dati.
+  function sensitiveCloudReady() {
+    return hasCloud() && vaultUnlocked();
+  }
+
+  function vaultUnsupportedError() {
+    return 'La cifratura non è disponibile in questo browser: i dati restano solo su questo dispositivo.';
   }
 
   function userDoc() {
@@ -484,30 +523,54 @@
   async function saveCloudAnalysis(id, normalized, options) {
     var doc = userDoc();
     if (!doc) throw new Error('Utente non autenticato');
+    var keys = vaultKeys();
+    if (!keys) {
+      var locked = new Error('Dati cifrati: inserisci la frase di sicurezza per sincronizzare su Firestore.');
+      locked.code = 'igft/vault-locked';
+      throw locked;
+    }
+
     var analysisRef = id ? doc.collection('analyses').doc(id) : doc.collection('analyses').doc();
     var fb = firebaseState();
     var createdAt = options && options.createdAt ? new Date(options.createdAt) : fb.serverTimestamp();
 
     var chunks = normalized.chunks;
     var createdChunkIds = [];
+    var encryptedChunks = [];
+    var index;
+
+    // Il testo cifrato viene preparato prima delle scritture: nessuna username
+    // in chiaro lascia il browser.
+    for (index = 0; index < chunks.length; index++) {
+      encryptedChunks.push(await Crypto.encryptJson(keys.dek, chunks[index]));
+    }
+
+    var encryptedSummary = await Crypto.encryptJson(keys.dek, {
+      followingCount: normalized.summary.followingCount,
+      followersCount: normalized.summary.followersCount,
+      notFollowingCount: normalized.summary.notFollowingCount,
+      removedDeactivatedCount: normalized.summary.removedDeactivatedCount,
+      truncated: normalized.summary.truncated,
+      chunkCount: chunks.length
+    });
 
     try {
-      for (var start = 0; start < chunks.length; start += LIMITS.batchSize) {
+      for (var start = 0; start < encryptedChunks.length; start += LIMITS.batchSize) {
         var batch = fb.db.batch();
-        var slice = chunks.slice(start, start + LIMITS.batchSize);
-        slice.forEach(function (usernames, offset) {
-          var index = start + offset;
-          var chunkId = 'chunk-' + String(index).padStart(3, '0');
+        var slice = encryptedChunks.slice(start, start + LIMITS.batchSize);
+        slice.forEach(function (ciphertext, offset) {
+          var chunkIndex = start + offset;
+          var chunkId = 'chunk-' + String(chunkIndex).padStart(3, '0');
           createdChunkIds.push(chunkId);
-          batch.set(analysisRef.collection('items').doc(chunkId), { usernames: usernames });
+          batch.set(analysisRef.collection('items').doc(chunkId), { enc: ciphertext });
         });
         await batch.commit();
       }
 
-      await analysisRef.set(Object.assign({}, normalized.summary, {
+      await analysisRef.set({
         createdAt: createdAt,
-        chunkCount: chunks.length
-      }));
+        enc: encryptedSummary
+      });
 
       return {
         id: analysisRef.id,
@@ -558,8 +621,16 @@
     addPending('analyses', id);
     state.analyses = sortByDateDesc(state.analyses.filter(function (item) {
       return item && item.id !== id;
-    }).concat([{ id: id, createdAt: normalized.summary.createdAt, followingCount: normalized.summary.followingCount, followersCount: normalized.summary.followersCount, notFollowingCount: normalized.summary.notFollowingCount, removedDeactivatedCount: normalized.summary.removedDeactivatedCount, truncated: normalized.summary.truncated, storage: 'local-fallback', pending: true }]));
+    }).concat([{ id: id, createdAt: normalized.summary.createdAt, followingCount: normalized.summary.followingCount, followersCount: normalized.summary.followersCount, notFollowingCount: normalized.summary.notFollowingCount, removedDeactivatedCount: normalized.summary.removedDeactivatedCount, truncated: normalized.summary.truncated, storage: sensitiveCloudReady() ? 'local-fallback' : 'local', pending: true }]));
     notify();
+
+    // Senza chiave di cifratura non si scrive nulla in chiaro su Firestore:
+    // l'analisi resta sul dispositivo finché l'utente non sblocca i dati.
+    if (!sensitiveCloudReady()) {
+      state.vaultError = cryptoSupported() ? null : vaultUnsupportedError();
+      notify();
+      return { id: id, summary: normalized.summary, storage: 'local', pending: true, vaultLocked: true };
+    }
 
     if (cloudBackoffActive()) {
       state.cloudSync = 'pending';
@@ -605,7 +676,7 @@
   }
 
   async function listAnalyses() {
-    if (hasCloud() && !cloudBackoffActive()) {
+    if (sensitiveCloudReady() && !cloudBackoffActive()) {
       try {
         await withTimeout(refreshCloudAnalyses(), 12000, 'Lettura dello storico da Firestore troppo lenta.');
         state.cloudError = null;
@@ -624,28 +695,53 @@
     return sortByDateDesc(state.analyses);
   }
 
+  function analysisSummaryFrom(data) {
+    return {
+      followingCount: Number(data.followingCount) || 0,
+      followersCount: Number(data.followersCount) || 0,
+      notFollowingCount: Number(data.notFollowingCount) || 0,
+      removedDeactivatedCount: Number(data.removedDeactivatedCount) || 0,
+      truncated: !!data.truncated,
+      chunkCount: Number(data.chunkCount) || 0
+    };
+  }
+
+  // Legge i metadati di un'analisi: formato cifrato (`enc`) oppure, per i dati
+  // creati prima della cifratura, formato in chiaro (da migrare).
+  async function decodeAnalysis(data, keys) {
+    if (data && typeof data.enc === 'string') {
+      return { summary: await Crypto.decryptJson(keys.dek, data.enc), legacy: false };
+    }
+    return { summary: analysisSummaryFrom(data || {}), legacy: true };
+  }
+
   async function refreshCloudAnalyses() {
     var doc = userDoc();
     if (!doc) return;
+    var keys = vaultKeys();
+    if (!keys) return;
+
     var snapshot = await doc.collection('analyses')
       .orderBy('createdAt', 'desc')
       .limit(LIMITS.maxCloudAnalyses)
       .get();
 
     var byId = new Map();
-    snapshot.docs.forEach(function (item) {
+    for (var i = 0; i < snapshot.docs.length; i++) {
+      var item = snapshot.docs[i];
       var data = item.data() || {};
+      var decoded = await decodeAnalysis(data, keys);
       byId.set(item.id, {
         id: item.id,
         createdAt: data.createdAt || null,
-        followingCount: Number(data.followingCount) || 0,
-        followersCount: Number(data.followersCount) || 0,
-        notFollowingCount: Number(data.notFollowingCount) || 0,
-        removedDeactivatedCount: Number(data.removedDeactivatedCount) || 0,
-        truncated: !!data.truncated,
+        followingCount: decoded.summary.followingCount,
+        followersCount: decoded.summary.followersCount,
+        notFollowingCount: decoded.summary.notFollowingCount,
+        removedDeactivatedCount: decoded.summary.removedDeactivatedCount,
+        truncated: !!decoded.summary.truncated,
         storage: 'cloud'
       });
-    });
+    }
 
     // Solo le analisi davvero non ancora sincronizzate restano visibili dalla
     // cache: tutto il resto arriva esclusivamente da Firestore.
@@ -662,7 +758,8 @@
   async function getAnalysis(id) {
     if (!id) return null;
 
-    if (hasCloud() && !cloudBackoffActive()) {
+    if (sensitiveCloudReady() && !cloudBackoffActive()) {
+      var keys = vaultKeys();
       try {
         var doc = userDoc();
         var ref = doc.collection('analyses').doc(id);
@@ -673,24 +770,31 @@
           return pending ? localAnalysisView(pending, id) : null;
         }
         var data = snapshot.data() || {};
+        var decoded = await decodeAnalysis(data, keys);
         var items = await withTimeout(ref.collection('items').get(), 10000, 'Lettura analisi da Firestore troppo lenta.');
         var usernames = [];
-        items.docs
-          .slice()
-          .sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; })
-          .forEach(function (item) {
-            var chunk = item.data() || {};
-            if (Array.isArray(chunk.usernames)) usernames = usernames.concat(chunk.usernames);
-          });
+        var ordered = items.docs.slice().sort(function (a, b) {
+          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        });
+        for (var i = 0; i < ordered.length; i++) {
+          var chunk = ordered[i].data() || {};
+          if (typeof chunk.enc === 'string') {
+            usernames = usernames.concat(await Crypto.decryptJson(keys.dek, chunk.enc));
+          } else if (Array.isArray(chunk.usernames)) {
+            // Dati legacy in chiaro: letti per non perdere lo storico e migrati
+            // al prossimo sync.
+            usernames = usernames.concat(chunk.usernames);
+          }
+        }
         cloudOk();
         return {
           id: id,
           createdAt: data.createdAt || null,
-          followingCount: Number(data.followingCount) || 0,
-          followersCount: Number(data.followersCount) || 0,
-          notFollowingCount: Number(data.notFollowingCount) || 0,
-          removedDeactivatedCount: Number(data.removedDeactivatedCount) || 0,
-          truncated: !!data.truncated,
+          followingCount: decoded.summary.followingCount,
+          followersCount: decoded.summary.followersCount,
+          notFollowingCount: decoded.summary.notFollowingCount,
+          removedDeactivatedCount: decoded.summary.removedDeactivatedCount,
+          truncated: !!decoded.summary.truncated,
           storage: 'cloud',
           notFollowing: Core.uniqueUsernames(usernames)
         };
@@ -785,6 +889,21 @@
     });
   }
 
+  // ID opaco del documento: il database non vede la username, il client sì
+  // (stessa username produce sempre lo stesso ID per deduplicare).
+  async function deactivatedDocId(username) {
+    var keys = vaultKeys();
+    if (!keys) throw new Error('Dati cifrati: chiave non disponibile.');
+    return Crypto.dedupeId(keys.dedupeKey, Core.normalizeUsername(username));
+  }
+
+  async function encryptDeactivated(keys, item) {
+    return Crypto.encryptJson(keys.dek, {
+      username: item.username,
+      markedAt: item.markedAt || new Date().toISOString()
+    });
+  }
+
   async function markDeactivated(username) {
     var normalized = Core.normalizeUsername(username);
     if (!normalized) throw new Error('Username non valido');
@@ -800,11 +919,17 @@
     removePending('deactivatedRemove', normalized);
     addPending('deactivatedAdd', normalized);
 
+    if (!sensitiveCloudReady()) {
+      state.vaultError = cryptoSupported() ? null : vaultUnsupportedError();
+      notify();
+      return { synced: false, pending: true, vaultLocked: true };
+    }
+
     try {
-      await withTimeout(userDoc().collection('deactivated').doc(normalized).set({
-        username: normalized,
-        markedAt: firebaseState().serverTimestamp()
-      }), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
+      var keys = vaultKeys();
+      var docId = await deactivatedDocId(normalized);
+      var enc = await encryptDeactivated(keys, { username: normalized, markedAt: markedAt });
+      await withTimeout(userDoc().collection('deactivated').doc(docId).set({ enc: enc }), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
       removePending('deactivatedAdd', normalized);
       state.cloudError = null;
       return { synced: true };
@@ -833,8 +958,14 @@
     removePending('deactivatedAdd', normalized);
     addPending('deactivatedRemove', normalized);
 
+    if (!sensitiveCloudReady()) {
+      notify();
+      return { synced: false, pending: true, vaultLocked: true };
+    }
+
     try {
-      await withTimeout(userDoc().collection('deactivated').doc(normalized).delete(), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
+      var docId = await deactivatedDocId(normalized);
+      await withTimeout(userDoc().collection('deactivated').doc(docId).delete(), 8000, 'Sincronizzazione del profilo su Firestore troppo lenta.');
       removePending('deactivatedRemove', normalized);
       state.cloudError = null;
       return { synced: true };
@@ -859,9 +990,13 @@
 
   // Legge i profili disattivati dal cloud a pagine: con liste grandi una singola
   // get() può superare il timeout e far sembrare Firestore non disponibile.
+  // I documenti sono cifrati; quelli in chiaro sono dati legacy da migrare.
   async function readCloudDeactivated(doc) {
+    var keys = vaultKeys();
     var cloudMap = new Map();
+    var legacy = [];
     var lastDoc = null;
+    if (!keys) return { map: cloudMap, legacy: legacy };
 
     while (true) {
       var query = doc.collection('deactivated')
@@ -871,31 +1006,48 @@
       var snapshot = await withTimeout(query.get(), 10000, 'Lettura profili disattivati da Firestore troppo lenta.');
       if (!snapshot.docs.length) break;
 
-      snapshot.docs.forEach(function (item) {
+      for (var i = 0; i < snapshot.docs.length; i++) {
+        var item = snapshot.docs[i];
         var data = item.data() || {};
-        var username = Core.normalizeUsername(data.username || item.id);
-        if (!username) return;
-        var markedAt = data.markedAt;
+        var payload = null;
+
+        if (typeof data.enc === 'string') {
+          try {
+            payload = await Crypto.decryptJson(keys.dek, data.enc);
+          } catch (error) {
+            console.warn('[IGFT] documento cifrato illeggibile ignorato');
+            continue;
+          }
+        } else {
+          // Documento legacy in chiaro: lo storico esistente non va perso.
+          payload = { username: data.username || item.id, markedAt: data.markedAt };
+          legacy.push({ id: item.id, username: Core.normalizeUsername(payload.username), markedAt: payload.markedAt });
+        }
+
+        var username = Core.normalizeUsername(payload && payload.username);
+        if (!username) continue;
+        var markedAt = payload.markedAt;
         cloudMap.set(username, {
           username: username,
           markedAt: markedAt && typeof markedAt.toDate === 'function'
             ? markedAt.toDate().toISOString()
             : (markedAt || new Date().toISOString())
         });
-      });
+      }
 
       if (snapshot.docs.length < LIMITS.deactivatedPageSize) break;
       lastDoc = snapshot.docs[snapshot.docs.length - 1];
     }
 
-    return cloudMap;
+    return { map: cloudMap, legacy: legacy };
   }
 
   // Invia a Firestore le modifiche ai disattivati rimaste in coda (offline).
   async function flushPendingDeactivated() {
     var doc = userDoc();
     var fb = firebaseState();
-    if (!doc || !fb) return;
+    var keys = vaultKeys();
+    if (!doc || !fb || !keys) return;
 
     var removals = pendingList('deactivatedRemove');
     var adds = pendingList('deactivatedAdd');
@@ -903,21 +1055,23 @@
 
     for (var r = 0; r < removals.length; r += LIMITS.batchSize) {
       var removeBatch = fb.db.batch();
-      removals.slice(r, r + LIMITS.batchSize).forEach(function (username) {
-        removeBatch.delete(doc.collection('deactivated').doc(username));
-      });
+      for (var ri = r; ri < Math.min(r + LIMITS.batchSize, removals.length); ri++) {
+        var removeId = await deactivatedDocId(removals[ri]);
+        removeBatch.delete(doc.collection('deactivated').doc(removeId));
+      }
       await withTimeout(removeBatch.commit(), 10000, 'Scrittura profili disattivati su Firestore troppo lenta.');
     }
 
     for (var a = 0; a < adds.length; a += LIMITS.batchSize) {
       var addBatch = fb.db.batch();
-      adds.slice(a, a + LIMITS.batchSize).forEach(function (username) {
+      for (var ai = a; ai < Math.min(a + LIMITS.batchSize, adds.length); ai++) {
+        var username = adds[ai];
         var item = state.deactivated.get(username) || { username: username, markedAt: new Date().toISOString() };
-        addBatch.set(doc.collection('deactivated').doc(username), {
-          username: username,
-          markedAt: new Date(item.markedAt)
+        var addId = await deactivatedDocId(username);
+        addBatch.set(doc.collection('deactivated').doc(addId), {
+          enc: await encryptDeactivated(keys, item)
         });
-      });
+      }
       await withTimeout(addBatch.commit(), 10000, 'Scrittura profili disattivati su Firestore troppo lenta.');
     }
 
@@ -937,13 +1091,15 @@
 
     var doc = userDoc();
     var fb = firebaseState();
+    var keys = vaultKeys();
     var local = localDeactivatedList();
-    if (!doc || !fb || !local.length) {
+    if (!doc || !fb || !keys || !local.length) {
       try { localStorage.setItem(migratedKey, '1'); } catch (error) { /* non bloccante */ }
       return false;
     }
 
-    var cloudMap = await readCloudDeactivated(doc);
+    var cloudRead = await readCloudDeactivated(doc);
+    var cloudMap = cloudRead.map;
     var removals = new Set(pendingList('deactivatedRemove'));
     var pending = local.filter(function (item) {
       return !cloudMap.has(item.username) && !removals.has(item.username);
@@ -951,12 +1107,14 @@
 
     for (var start = 0; start < pending.length; start += LIMITS.batchSize) {
       var batch = fb.db.batch();
-      pending.slice(start, start + LIMITS.batchSize).forEach(function (item) {
-        batch.set(doc.collection('deactivated').doc(item.username), {
-          username: item.username,
-          markedAt: new Date(item.markedAt)
+      var slice = pending.slice(start, start + LIMITS.batchSize);
+      for (var i = 0; i < slice.length; i++) {
+        var item = slice[i];
+        var docId = await deactivatedDocId(item.username);
+        batch.set(doc.collection('deactivated').doc(docId), {
+          enc: await encryptDeactivated(keys, item)
         });
-      });
+      }
       await withTimeout(batch.commit(), 10000, 'Migrazione profili disattivati su Firestore troppo lenta.');
     }
 
@@ -968,12 +1126,83 @@
   // locale viene sostituita con quanto presente nel database.
   async function refreshCloudDeactivated() {
     var doc = userDoc();
-    if (!doc) return;
+    if (!doc || !vaultUnlocked()) return;
     await flushPendingDeactivated();
-    var cloudMap = await readCloudDeactivated(doc);
-    state.deactivated = cloudMap;
+    var cloudRead = await readCloudDeactivated(doc);
+    state.deactivated = cloudRead.map;
     persistLocalDeactivated();
     notify();
+  }
+
+  // Migrazione una tantum dei documenti scritti in chiaro dalla versione
+  // precedente: vengono ri-cifrati e la copia in chiaro viene eliminata.
+  async function migrateLegacyCloud(uid) {
+    var migratedKey = KEYS.cryptoMigratedPrefix + uid;
+    var analysesMigrated = false;
+    try {
+      analysesMigrated = localStorage.getItem(migratedKey) === '1';
+    } catch (error) {
+      analysesMigrated = false;
+    }
+
+    var doc = userDoc();
+    var fb = firebaseState();
+    var keys = vaultKeys();
+    if (!doc || !fb || !keys) return false;
+
+    var changed = false;
+
+    // 1. Profili disattivati: i documenti legacy hanno l'ID = username.
+    //    Il controllo è sempre attivo, così anche un dato scritto da una
+    //    versione precedente dopo la migrazione viene cifrato al sync seguente.
+    var deactivated = await readCloudDeactivated(doc);
+    for (var i = 0; i < deactivated.legacy.length; i++) {
+      var legacy = deactivated.legacy[i];
+      if (!legacy.username) continue;
+      var newId = await deactivatedDocId(legacy.username);
+      await withTimeout(doc.collection('deactivated').doc(newId).set({
+        enc: await encryptDeactivated(keys, {
+          username: legacy.username,
+          markedAt: legacy.markedAt && typeof legacy.markedAt.toDate === 'function'
+            ? legacy.markedAt.toDate().toISOString()
+            : (legacy.markedAt || new Date().toISOString())
+        })
+      }), 10000, 'Migrazione profili disattivati troppo lenta.');
+      await withTimeout(doc.collection('deactivated').doc(legacy.id).delete(), 10000, 'Migrazione profili disattivati troppo lenta.');
+      changed = true;
+    }
+
+    // 2. Analisi: metadati e chunk scritti in chiaro (scansione una tantum).
+    if (!analysesMigrated) {
+      var analyses = await doc.collection('analyses').get();
+      for (var a = 0; a < analyses.docs.length; a++) {
+        var analysisDoc = analyses.docs[a];
+        var data = analysisDoc.data() || {};
+        if (typeof data.enc === 'string') continue;
+        if (!data.createdAt) continue;
+
+        var items = await analysisDoc.ref.collection('items').get();
+        for (var c = 0; c < items.docs.length; c++) {
+          var chunkDoc = items.docs[c];
+          var chunk = chunkDoc.data() || {};
+          if (typeof chunk.enc === 'string') continue;
+          if (!Array.isArray(chunk.usernames)) continue;
+          await withTimeout(chunkDoc.ref.set({
+            enc: await Crypto.encryptJson(keys.dek, chunk.usernames)
+          }), 10000, 'Migrazione analisi troppo lenta.');
+        }
+
+        var summary = analysisSummaryFrom(data);
+        await withTimeout(analysisDoc.ref.set({
+          createdAt: data.createdAt || null,
+          enc: await Crypto.encryptJson(keys.dek, summary)
+        }), 10000, 'Migrazione analisi troppo lenta.');
+        changed = true;
+      }
+      try { localStorage.setItem(migratedKey, '1'); } catch (error) { /* non bloccante */ }
+    }
+
+    return changed;
   }
 
   async function migrateLocalAnalyses(uid) {
@@ -1065,7 +1294,30 @@
     }, { merge: true }), 10000, 'Aggiornamento profilo su Firestore troppo lento.');
   }
 
-  function switchToCloud(user, force) {
+  function updateVaultState() {
+    if (!cryptoSupported()) {
+      state.vaultState = 'unsupported';
+      return;
+    }
+    if (vaultUnlocked()) {
+      state.vaultState = 'unlocked';
+      return;
+    }
+    state.vaultState = state.vaultRecord ? 'locked' : 'absent';
+  }
+
+  // Legge il documento profilo: include il record della chiave cifrata.
+  async function readCloudProfile() {
+    var doc = userDoc();
+    if (!doc) return null;
+    var snapshot = await withTimeout(doc.get(), 12000, 'Lettura profilo da Firestore troppo lenta.');
+    var data = snapshot && snapshot.exists ? (snapshot.data() || {}) : {};
+    state.vaultRecord = data.keyVault || null;
+    updateVaultState();
+    return data;
+  }
+
+  async function switchToCloud(user, force) {
     if (!force && state.user && state.user.uid === user.uid && state.storage === 'cloud') {
       return;
     }
@@ -1078,6 +1330,17 @@
     if (guestSnapshot && !hasScopedLocalData()) {
       adoptGuestLocalData(guestSnapshot);
     }
+
+    state.vaultRecord = null;
+    state.vaultError = null;
+    if (Vault && typeof Vault.setUser === 'function') {
+      try {
+        await Vault.setUser(user.uid);
+      } catch (error) {
+        console.warn('[IGFT] impossibile ripristinare la chiave sul dispositivo');
+      }
+    }
+    updateVaultState();
 
     state.storage = 'cloud';
     state.loading = false;
@@ -1102,10 +1365,10 @@
     };
 
     try {
-      // 1. Storico: lettura dal database, unica operazione che determina lo
-      //    stato della sessione.
+      // 1. Profilo utente e record della chiave di cifratura. È l'unica
+      //    operazione che determina lo stato della sessione.
       try {
-        await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico da Firestore troppo lenta.');
+        await withTimeout(readCloudProfile(), 15000, 'Lettura profilo da Firestore troppo lenta.');
         if (guard()) {
           state.cloudError = null;
           state.storage = 'cloud';
@@ -1114,7 +1377,7 @@
         }
       } catch (error) {
         if (isTimeout(error)) {
-          cloudSlow('storico');
+          cloudSlow('profilo');
           return;
         }
         if (guard()) {
@@ -1128,7 +1391,7 @@
         return;
       }
 
-      // 2. Profilo utente (email e nome) e impostazioni.
+      // 2. Identità (email e nome) e impostazioni.
       try {
         await ensureProfile();
       } catch (error) {
@@ -1139,33 +1402,71 @@
         }
       }
 
-      // 3. Profili disattivati: migrazione una tantum, coda offline, rilettura.
-      try {
-        await withTimeout(migrateLocalDeactivated(uid), 15000, 'Migrazione profili disattivati troppo lenta.');
-        await withTimeout(refreshCloudDeactivated(), 15000, 'Lettura profili disattivati da Firestore troppo lenta.');
-        if (guard()) notify();
-      } catch (error) {
-        if (isTimeout(error)) {
-          cloudSlow('profili disattivati');
-          return;
-        }
-        console.warn('[IGFT] sincronizzazione profili disattivati non riuscita: ' + errorMessage(error));
-      }
-
-      // 4. Analisi salvate offline e migrazione una tantum della cache locale.
-      try {
-        var flushed = await withTimeout(flushPendingAnalyses(), 20000, 'Sincronizzazione analisi in coda troppo lenta.');
-        var migrated = await withTimeout(migrateLocalAnalyses(uid), 20000, 'Migrazione analisi su Firestore troppo lenta.');
-        if (flushed || migrated) {
+      // 3. Dati sensibili: solo con la chiave disponibile. Senza chiave non
+      //    viene letto né scritto nulla in chiaro; i dati restano in locale.
+      if (vaultUnlocked()) {
+        try {
           await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico da Firestore troppo lenta.');
-          if (guard()) notify();
-        }
-      } catch (error) {
-        if (isTimeout(error)) {
-          cloudSlow('migrazione');
+          if (guard()) {
+            state.cloudError = null;
+            state.storage = 'cloud';
+            cloudOk();
+            notify();
+          }
+        } catch (error) {
+          if (isTimeout(error)) {
+            cloudSlow('storico');
+            return;
+          }
+          if (guard()) {
+            state.cloudError = errorMessage(error);
+            state.storage = 'local-fallback';
+            state.cloudSync = 'pending';
+            notify();
+            scheduleCloudRetry(60000);
+          }
           return;
         }
-        console.warn('[IGFT] sincronizzazione analisi non riuscita: ' + errorMessage(error));
+
+        // 4. Migrazione una tantum dei documenti legacy in chiaro.
+        try {
+          await withTimeout(migrateLegacyCloud(uid), 30000, 'Migrazione dei dati cifrati troppo lenta.');
+        } catch (error) {
+          if (isTimeout(error)) {
+            cloudSlow('migrazione cifratura');
+          } else {
+            console.warn('[IGFT] migrazione dati in chiaro non riuscita: ' + errorMessage(error));
+          }
+        }
+
+        // 5. Profili disattivati: coda offline e rilettura.
+        try {
+          await withTimeout(migrateLocalDeactivated(uid), 15000, 'Migrazione profili disattivati troppo lenta.');
+          await withTimeout(refreshCloudDeactivated(), 15000, 'Lettura profili disattivati da Firestore troppo lenta.');
+          if (guard()) notify();
+        } catch (error) {
+          if (isTimeout(error)) {
+            cloudSlow('profili disattivati');
+            return;
+          }
+          console.warn('[IGFT] sincronizzazione profili disattivati non riuscita: ' + errorMessage(error));
+        }
+
+        // 6. Analisi salvate offline e migrazione una tantum della cache locale.
+        try {
+          var flushed = await withTimeout(flushPendingAnalyses(), 20000, 'Sincronizzazione analisi in coda troppo lenta.');
+          var migrated = await withTimeout(migrateLocalAnalyses(uid), 20000, 'Migrazione analisi su Firestore troppo lenta.');
+          if (flushed || migrated) {
+            await withTimeout(refreshCloudAnalyses(), 15000, 'Lettura dello storico da Firestore troppo lenta.');
+            if (guard()) notify();
+          }
+        } catch (error) {
+          if (isTimeout(error)) {
+            cloudSlow('migrazione');
+            return;
+          }
+          console.warn('[IGFT] sincronizzazione analisi non riuscita: ' + errorMessage(error));
+        }
       }
 
       if (guard()) {
@@ -1189,6 +1490,10 @@
     cloudOk();
     state.cloudSync = 'idle';
     state.cloudSyncReason = null;
+    state.vaultRecord = null;
+    state.vaultState = 'absent';
+    state.vaultError = null;
+    if (Vault && typeof Vault.detach === 'function') Vault.detach();
     if (cloudSync.retryTimer) {
       clearTimeout(cloudSync.retryTimer);
       cloudSync.retryTimer = null;
@@ -1210,6 +1515,102 @@
     notify();
     await syncCloudInBackground(state.user.uid, true);
     return state.storage === 'cloud';
+  }
+
+  /* ======================= CIFRATURA (ZERO-KNOWLEDGE) ======================= */
+
+  // Attiva la cifratura per l'account: crea la chiave e la salva avvolta nel
+  // profilo. Da questo momento analisi e disattivati vengono cifrati.
+  async function setupVault(passphrase) {
+    if (!state.user) return { ok: false, error: 'Accedi per attivare la cifratura.' };
+    if (!cryptoSupported()) return { ok: false, error: vaultUnsupportedError() };
+    if (state.vaultRecord) return { ok: false, error: 'La cifratura è già attiva su questo account.' };
+    if (!hasCloud()) return { ok: false, error: 'Connettiti a Firestore per attivare la cifratura.' };
+
+    var value = String(passphrase || '');
+    if (value.length < 12) {
+      return { ok: false, error: 'Usa una frase di sicurezza di almeno 12 caratteri.' };
+    }
+
+    var record;
+    try {
+      record = await Vault.create(value);
+      await withTimeout(
+        userDoc().set({ keyVault: record, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
+        12000,
+        'Salvataggio della chiave su Firestore troppo lento.'
+      );
+      state.vaultRecord = record;
+      state.vaultState = 'unlocked';
+      state.vaultError = null;
+      notify();
+      syncCloudInBackground(state.user.uid, true);
+      return { ok: true };
+    } catch (error) {
+      // Se la chiave non è stata salvata, non deve restare attiva: altrimenti
+      // i dati cifrati non sarebbero più recuperabili dopo un logout.
+      if (Vault && typeof Vault.lock === 'function') {
+        try { await Vault.lock(); } catch (lockError) { /* non bloccante */ }
+      }
+      state.vaultRecord = null;
+      state.vaultState = cryptoSupported() ? 'absent' : 'unsupported';
+      notify();
+      return { ok: false, error: errorMessage(error) };
+    }
+  }
+
+  async function unlockVault(passphrase) {
+    if (!state.user) return { ok: false, error: 'Accedi per sbloccare i dati.' };
+    if (state.vaultState === 'unsupported') return { ok: false, error: vaultUnsupportedError() };
+    if (!state.vaultRecord) return { ok: false, error: 'La cifratura non è ancora attiva su questo account.' };
+
+    try {
+      await Vault.unlock(state.vaultRecord, String(passphrase || ''));
+      state.vaultState = 'unlocked';
+      state.vaultError = null;
+      notify();
+      syncCloudInBackground(state.user.uid, true);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: 'Frase di sicurezza non corretta.' };
+    }
+  }
+
+  // Blocca i dati su questo dispositivo: rimuove la chiave dalla memoria e
+  // dalla cache locale. Per riaprirli servirà la frase di sicurezza.
+  async function lockVault() {
+    if (Vault && typeof Vault.lock === 'function') {
+      await Vault.lock();
+    }
+    updateVaultState();
+    notify();
+    return { ok: true };
+  }
+
+  async function changeVaultPassphrase(currentPassphrase, nextPassphrase) {
+    if (!state.user || !state.vaultRecord) {
+      return { ok: false, error: 'La cifratura non è attiva su questo account.' };
+    }
+    if (String(nextPassphrase || '').length < 12) {
+      return { ok: false, error: 'La nuova frase deve avere almeno 12 caratteri.' };
+    }
+    try {
+      var nextRecord = await Vault.changePassphrase(
+        state.vaultRecord,
+        String(currentPassphrase || ''),
+        String(nextPassphrase)
+      );
+      await withTimeout(
+        userDoc().set({ keyVault: nextRecord, updatedAt: firebaseState().serverTimestamp() }, { merge: true }),
+        12000,
+        'Aggiornamento della chiave su Firestore troppo lento.'
+      );
+      state.vaultRecord = nextRecord;
+      notify();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: 'Frase di sicurezza attuale non corretta.' };
+    }
   }
 
   async function deleteAllData() {
@@ -1241,6 +1642,26 @@
       var fb = firebaseState();
       if (doc && fb) {
         try {
+          // Elimina tutte le analisi sul cloud, anche quando la chiave è
+          // bloccata e lo storico locale non ne conosce gli ID.
+          var cloudAnalyses = await withTimeout(
+            doc.collection('analyses').get(),
+            15000,
+            'Eliminazione dati da Firestore troppo lenta.'
+          );
+          for (var a = 0; a < cloudAnalyses.docs.length; a++) {
+            var analysisRef = cloudAnalyses.docs[a].ref;
+            var analysisItems = await analysisRef.collection('items').get();
+            for (var startItems = 0; startItems < analysisItems.docs.length; startItems += LIMITS.batchSize) {
+              var itemsBatch = fb.db.batch();
+              analysisItems.docs.slice(startItems, startItems + LIMITS.batchSize).forEach(function (item) {
+                itemsBatch.delete(item.ref);
+              });
+              await itemsBatch.commit();
+            }
+            await analysisRef.delete();
+          }
+
           var snapshot = await withTimeout(
             doc.collection('deactivated').get(),
             15000,
@@ -1275,12 +1696,19 @@
     localIds.forEach(function (id) { removeLocalAnalysis(id); });
 
     if (state.user) {
+      var uid = state.user.uid;
       try {
-        localStorage.removeItem(KEYS.migratedPrefix + state.user.uid);
-        localStorage.removeItem(KEYS.deactivatedMigratedPrefix + state.user.uid);
+        localStorage.removeItem(KEYS.migratedPrefix + uid);
+        localStorage.removeItem(KEYS.deactivatedMigratedPrefix + uid);
+        localStorage.removeItem(KEYS.cryptoMigratedPrefix + uid);
       } catch (error) {
         // Non bloccante.
       }
+      if (Vault && typeof Vault.forget === 'function') {
+        try { await Vault.forget(uid); } catch (error) { /* non bloccante */ }
+      }
+      state.vaultRecord = null;
+      state.vaultState = 'absent';
     }
 
     if (cloudFailed) {
@@ -1320,7 +1748,11 @@
       cloudSyncReason: state.cloudSyncReason,
       autoSave: state.settings.autoSave,
       deactivatedCount: state.deactivated.size,
-      analysesCount: state.analyses.length
+      analysesCount: state.analyses.length,
+      vaultState: state.vaultState,
+      vaultSource: Vault && typeof Vault.getSource === 'function' ? Vault.getSource() : null,
+      vaultError: state.vaultError,
+      encryption: state.vaultState === 'unlocked' ? 'zero-knowledge' : 'pending'
     };
   }
 
@@ -1367,6 +1799,10 @@
     clearAnalyses: clearAnalyses,
     deleteAllData: deleteAllData,
     setAutoSave: setAutoSave,
-    retryCloud: retryCloud
+    retryCloud: retryCloud,
+    setupVault: setupVault,
+    unlockVault: unlockVault,
+    lockVault: lockVault,
+    changeVaultPassphrase: changeVaultPassphrase
   };
 })();

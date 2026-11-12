@@ -1,12 +1,20 @@
 rules_version = '2';
 
 // Firestore rules for Instagram Follower Tracker.
+//
 // Each authenticated user can read and write only their own data.
-// The database is the source of truth for signed-in users:
-//   users/{uid}                         -> profile (email, displayName) + settings
-//   users/{uid}/deactivated/{username}  -> remembered deactivated profiles
-//   users/{uid}/analyses/{id}           -> analysis metadata
-//   users/{uid}/analyses/{id}/items/*   -> username chunks
+//
+// Zero-knowledge: analysis data and deactivated profiles are encrypted in the
+// browser before being written. The server only sees opaque ciphertext.
+//   users/{uid}                          -> profile (email, displayName),
+//                                           settings and the *wrapped* key
+//                                           record (keyVault). No plaintext key.
+//   users/{uid}/deactivated/{docId}      -> { enc } with docId = HMAC(username)
+//   users/{uid}/analyses/{id}            -> { createdAt, enc }
+//   users/{uid}/analyses/{id}/items/*    -> { enc }
+//
+// Plaintext metadata is limited to what is needed to order/limit documents:
+// the createdAt timestamp and the document IDs.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -14,56 +22,72 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    function isCiphertext(value) {
+      return value is string && value.size() > 0 && value.size() <= 1000000;
+    }
+
+    function validKeyVault(vault) {
+      return vault is map
+        && vault.keys().hasOnly(['v', 'kdf', 'iterations', 'salt', 'iv', 'wrappedKey'])
+        && vault.v == 1
+        && vault.kdf == 'PBKDF2-SHA256'
+        && vault.iterations is int
+        && vault.iterations >= 100000
+        && vault.iterations <= 1000000
+        && vault.salt is string
+        && vault.salt.size() > 0
+        && vault.salt.size() <= 256
+        && vault.iv is string
+        && vault.iv.size() > 0
+        && vault.iv.size() <= 256
+        && vault.wrappedKey is string
+        && vault.wrappedKey.size() > 0
+        && vault.wrappedKey.size() <= 1024;
+    }
+
     match /users/{uid} {
       allow read, delete: if isOwner(uid);
 
       allow create, update: if isOwner(uid)
         && request.resource.data.keys().hasOnly([
-          'email', 'displayName', 'settings', 'createdAt', 'updatedAt'
+          'email', 'displayName', 'settings', 'keyVault', 'createdAt', 'updatedAt'
         ])
         && (!('email' in request.resource.data) || request.resource.data.email is string)
         && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
         && (!('settings' in request.resource.data)
           || (request.resource.data.settings.keys().hasOnly(['autoSave'])
             && request.resource.data.settings.autoSave is bool))
+        && (!('keyVault' in request.resource.data) || validKeyVault(request.resource.data.keyVault))
         && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
         && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
-      // Profiles marked as deactivated, document ID = username.
-      match /deactivated/{username} {
+      // Deactivated profiles are stored with an opaque HMAC document ID and a
+      // single encrypted payload: the database cannot read the username.
+      match /deactivated/{docId} {
         allow read, delete: if isOwner(uid);
 
         allow create, update: if isOwner(uid)
-          && request.resource.data.keys().hasOnly(['username', 'markedAt'])
-          && request.resource.data.username == username
-          && username.matches('^[a-z0-9._]{1,50}$')
-          && request.resource.data.markedAt is timestamp;
+          && docId.matches('^[0-9a-f]{64}$')
+          && request.resource.data.keys().hasOnly(['enc'])
+          && isCiphertext(request.resource.data.enc);
       }
 
-      // Analysis metadata. The username list is split into chunks in items.
+      // Analysis metadata is encrypted; only createdAt stays readable so the
+      // history can be ordered without decrypting every document.
       match /analyses/{analysisId} {
         allow read, delete: if isOwner(uid);
 
         allow create, update: if isOwner(uid)
-          && request.resource.data.keys().hasOnly([
-            'createdAt', 'followingCount', 'followersCount', 'notFollowingCount',
-            'removedDeactivatedCount', 'truncated', 'chunkCount'
-          ])
+          && request.resource.data.keys().hasOnly(['createdAt', 'enc'])
           && request.resource.data.createdAt is timestamp
-          && request.resource.data.followingCount is int
-          && request.resource.data.followersCount is int
-          && request.resource.data.notFollowingCount is int
-          && request.resource.data.chunkCount is int
-          && request.resource.data.chunkCount >= 0
-          && request.resource.data.chunkCount <= 400;
+          && isCiphertext(request.resource.data.enc);
 
         match /items/{chunkId} {
           allow read, delete: if isOwner(uid);
 
           allow create, update: if isOwner(uid)
-            && request.resource.data.keys().hasOnly(['usernames'])
-            && request.resource.data.usernames is list
-            && request.resource.data.usernames.size() <= 900;
+            && request.resource.data.keys().hasOnly(['enc'])
+            && isCiphertext(request.resource.data.enc);
         }
       }
     }

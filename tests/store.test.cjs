@@ -5,9 +5,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { webcrypto } = require('node:crypto');
 
 const CORE = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'lib', 'analysis-core.js'), 'utf8');
+const CRYPTO = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'lib', 'crypto.js'), 'utf8');
+const VAULT = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'lib', 'vault.js'), 'utf8');
 const STORE = fs.readFileSync(path.join(__dirname, '..', 'public', 'scripts', 'store.js'), 'utf8');
+
+const PASSPHRASE = 'frase-di-sicurezza-di-test-123';
 
 function createStore(firebase, options) {
   const opts = options || {};
@@ -23,6 +28,11 @@ function createStore(firebase, options) {
   const context = {
     console: opts.consoleImpl || console,
     localStorage,
+    crypto: webcrypto,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    ArrayBuffer,
     Map,
     Set,
     Date,
@@ -40,9 +50,25 @@ function createStore(firebase, options) {
   if (firebase) context.IGFTFirebase = firebase;
   vm.createContext(context);
   vm.runInContext(CORE, context);
+  vm.runInContext(CRYPTO, context);
+  vm.runInContext(VAULT, context);
   vm.runInContext(STORE, context);
-  return { store: context.IGFTStore, memory };
+  return { store: context.IGFTStore, memory, context };
 }
+
+// Attiva la cifratura sull'account di test e attende il primo sync.
+async function activateVault(store, context) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const result = await store.setupVault(PASSPHRASE);
+  assert.equal(result.ok, true, result.error || 'attivazione cifratura fallita');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await store.retryCloud();
+}
+
+async function decrypt(store, context, payload) {
+  return context.IGFTCrypto.decryptJson(context.IGFTVault.getKeys().dek, payload);
+}
+
 
 const report = {
   followingCount: 120,
@@ -112,22 +138,23 @@ test('saveAnalysis resta locale se Firestore non è raggiungibile', async () => 
   assert.equal(list.length, 1);
 });
 
-test('switchToCloud resta cloud anche se i disattivati si sincronizzano lentamente', async () => {
-  let release;
-  const slowDeactivated = new Promise((resolve) => { release = resolve; });
+test('senza frase di sicurezza il profilo resta cloud e i dati sensibili non vengono toccati', async () => {
+  let sensitiveRead = false;
 
   const analysesQuery = {
     orderBy() { return analysesQuery; },
     limit() { return analysesQuery; },
-    get() { return Promise.resolve({ docs: [] }); }
+    get() { sensitiveRead = true; return Promise.resolve({ docs: [] }); }
   };
   const deactivatedQuery = {
     orderBy() { return deactivatedQuery; },
     limit() { return deactivatedQuery; },
     startAfter() { return deactivatedQuery; },
-    get() { return slowDeactivated.then(() => ({ docs: [] })); }
+    get() { sensitiveRead = true; return Promise.resolve({ docs: [] }); }
   };
   const userDoc = {
+    get() { return Promise.resolve({ exists: false, data: () => ({}) }); },
+    set() { return Promise.resolve(); },
     collection(name) {
       return name === 'analyses' ? analysesQuery : deactivatedQuery;
     }
@@ -160,10 +187,10 @@ test('switchToCloud resta cloud anche se i disattivati si sincronizzano lentamen
   const status = store.getStatus();
   assert.equal(status.storage, 'cloud');
   assert.equal(status.cloudError, null);
-
-  release();
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(status.vaultState, 'absent');
+  assert.equal(sensitiveRead, false, 'senza chiave non si leggono né scrivono dati sensibili');
 });
+
 
 test('logout e login conservano storico e disattivati quando Firestore non è disponibile', async () => {
   const reject = () => Promise.reject(Object.assign(new Error('offline'), { code: 'unavailable' }));
@@ -233,6 +260,7 @@ test('i timeout cloud restano informativi e non degradano la sessione', async ()
     get() { return new Promise(() => {}); }
   };
   const userDoc = {
+    get() { return new Promise(() => {}); },
     collection() { return hangingQuery; },
     set() { return new Promise(() => {}); }
   };
@@ -464,47 +492,80 @@ test('Firestore è la fonte di verità per storico e disattivati', async () => {
     }])
   });
 
-  const { store } = createStore(fakeFirebase(fake), { seed });
+  const { store, context } = createStore(fakeFirebase(fake), { seed });
   await store.ready;
-  await new Promise((resolve) => setTimeout(resolve, 80));
+  await activateVault(store, context);
 
   const analyses = await store.listAnalyses();
   assert.equal(store.getStatus().storage, 'cloud');
+  assert.equal(store.getStatus().vaultState, 'unlocked');
   assert.equal(analyses.length, 1);
   assert.equal(analyses[0].id, 'a1');
 
   const deactivated = store.listDeactivated().map((item) => item.username);
   assert.deepEqual(deactivated, ['ghost']);
-  assert.ok(fake.collections.get('users/user-1/deactivated').has('ghost'));
-  assert.ok(!fake.collections.get('users/user-1/deactivated').has('old'));
+
+  // I documenti legacy in chiaro sono stati migrati: nessuna username visibile.
+  const deactivatedBucket = fake.collections.get('users/user-1/deactivated');
+  assert.ok(!deactivatedBucket.has('ghost'));
+  assert.ok(Array.from(deactivatedBucket.values()).every((doc) => typeof doc.enc === 'string'));
+  assert.ok(!JSON.stringify(Array.from(deactivatedBucket.entries())).includes('ghost'));
+
+  const analysisDoc = fake.collections.get('users/user-1/analyses').get('a1');
+  assert.equal(typeof analysisDoc.enc, 'string');
+  assert.equal(analysisDoc.notFollowingCount, undefined);
+  const chunk = fake.collections.get('users/user-1/analyses/a1/items').get('chunk-000');
+  assert.equal(typeof chunk.enc, 'string');
+  assert.ok(!JSON.stringify(chunk).includes('alice'));
+  const decodedChunk = await decrypt(store, context, chunk.enc);
+  assert.deepEqual(Array.from(decodedChunk), ['alice']);
 });
 
-test('saveAnalysis scrive analisi e username su Firestore', async () => {
+test('saveAnalysis scrive analisi e username su Firestore in forma cifrata', async () => {
   const fake = createFakeFirestore();
-  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  const { store, context } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
   await store.ready;
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await activateVault(store, context);
 
   const saved = await store.saveAnalysis(report);
   assert.equal(saved.storage, 'cloud');
 
   const analyses = fake.collections.get('users/user-1/analyses');
   assert.ok(analyses && analyses.has(saved.id));
-  assert.equal(analyses.get(saved.id).notFollowingCount, 3);
+  assert.equal(typeof analyses.get(saved.id).enc, 'string');
+
+  const summary = await decrypt(store, context, analyses.get(saved.id).enc);
+  assert.equal(summary.notFollowingCount, 3);
 
   const items = fake.collections.get('users/user-1/analyses/' + saved.id + '/items');
-  assert.deepEqual(Array.from(items.get('chunk-000').usernames), ['alice', 'bob', 'carol']);
+  const chunk = items.get('chunk-000');
+  assert.equal(typeof chunk.enc, 'string');
+  assert.deepEqual(Array.from(await decrypt(store, context, chunk.enc)), ['alice', 'bob', 'carol']);
+
+  const serialized = JSON.stringify([
+    Array.from(analyses.entries()),
+    Array.from(items.entries())
+  ]);
+  assert.ok(!serialized.includes('alice'));
+  assert.ok(!serialized.includes('bob'));
 });
 
-test('i profili disattivati sono salvati su Firestore e riletti al retry', async () => {
+test('i profili disattivati sono cifrati con ID opaco e riletti al retry', async () => {
   const fake = createFakeFirestore();
-  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  const { store, context } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
   await store.ready;
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await activateVault(store, context);
 
   await store.markDeactivated('ghost');
-  assert.ok(fake.collections.get('users/user-1/deactivated').has('ghost'));
 
+  var bucket = fake.collections.get('users/user-1/deactivated');
+  assert.ok(!bucket.has('ghost'), 'la username non deve essere usata come ID');
+  var encrypted = Array.from(bucket.entries()).find(([, doc]) => typeof doc.enc === 'string');
+  assert.ok(encrypted);
+  var decoded = await decrypt(store, context, encrypted[1].enc);
+  assert.equal(decoded.username, 'ghost');
+
+  // Dato legacy in chiaro: viene letto e migrato al retry.
   fake.seed(['users', 'user-1', 'deactivated'], 'remote', {
     username: 'remote',
     markedAt: new Date()
@@ -513,13 +574,17 @@ test('i profili disattivati sono salvati su Firestore e riletti al retry', async
   await store.retryCloud();
   const names = store.listDeactivated().map((item) => item.username).sort();
   assert.deepEqual(names, ['ghost', 'remote']);
+
+  bucket = fake.collections.get('users/user-1/deactivated');
+  assert.ok(!bucket.has('remote'));
+  assert.ok(Array.from(bucket.values()).every((doc) => typeof doc.enc === 'string'));
 });
 
-test('le analisi salvate offline vengono inviate a Firestore al retry', async () => {
+test('le analisi salvate offline vengono inviate a Firestore cifrate al retry', async () => {
   const fake = createFakeFirestore();
-  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  const { store, context } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
   await store.ready;
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await activateVault(store, context);
 
   fake.state.failWrites = true;
   const saved = await store.saveAnalysis(report);
@@ -531,7 +596,32 @@ test('le analisi salvate offline vengono inviate a Firestore al retry', async ()
 
   const analyses = fake.collections.get('users/user-1/analyses');
   assert.ok(analyses && analyses.has(saved.id));
+  assert.equal(typeof analyses.get(saved.id).enc, 'string');
   const list = await store.listAnalyses();
   assert.equal(list.length, 1);
   assert.equal(list[0].storage, 'cloud');
+});
+
+test('senza cifratura attiva non viene scritto nessun dato sensibile in chiaro', async () => {
+  const fake = createFakeFirestore();
+  const { store } = createStore(fakeFirebase(fake), { seed: CLOUD_SEED });
+  await store.ready;
+  await new Promise((resolve) => setTimeout(resolve, 40));
+
+  assert.equal(store.getStatus().vaultState, 'absent');
+
+  const saved = await store.saveAnalysis(report);
+  assert.equal(saved.storage, 'local');
+  await store.markDeactivated('ghost');
+
+  const analyses = fake.collections.get('users/user-1/analyses');
+  assert.ok(!analyses || analyses.size === 0, 'nessuna analisi scritta senza chiave');
+
+  const deactivated = fake.collections.get('users/user-1/deactivated');
+  assert.ok(!deactivated || deactivated.size === 0, 'nessun disattivato scritto senza chiave');
+
+  // I dati restano comunque disponibili sul dispositivo.
+  const list = await store.listAnalyses();
+  assert.equal(list.length, 1);
+  assert.ok(store.listDeactivated().some((item) => item.username === 'ghost'));
 });

@@ -9,7 +9,7 @@ La web app resta statica: **nessun backend custom**, solo Firebase Authenticatio
 | --- | --- |
 | Firebase Hosting | Serving dei file statici in `public/` |
 | Firebase Authentication | Registrazione/login email-password e Google (facoltativi) |
-| Cloud Firestore | Fonte di verità per profilo (email/nome), storico analisi, profili disattivati e impostazioni |
+| Cloud Firestore | Fonte di verità per profilo (email/nome), impostazioni e record della chiave cifrata. Analisi e profili disattivati sono **cifrati end-to-end** nel browser |
 | localStorage | Modalità ospite e cache locale per l'uso offline; le modifiche in coda vengono inviate a Firestore |
 
 La configurazione web viene letta a runtime da `/__/firebase/init.json`, endpoint riservato
@@ -50,7 +50,9 @@ firebase deploy --only firestore:rules
 
 Le regole in `firestore.rules` consentono a ogni utente di leggere/scrivere solo
 `users/{uid}` e le relative subcollection. Il documento utente contiene `email`,
-`displayName`, `settings.autoSave` e i timestamp `createdAt`/`updatedAt`.
+`displayName`, `settings.autoSave`, il record `keyVault` (chiave cifrata) e i timestamp
+`createdAt`/`updatedAt`. Analisi e profili disattivati sono memorizzati solo come payload
+cifrato (`enc`) con ID opachi (vedi sezione 10).
 
 Senza database o regole pubblicate il login funziona ma analisi e profili disattivati
 restano nella cache locale (`local-fallback`) e l'interfaccia mostra un avviso con "Riprova".
@@ -122,11 +124,15 @@ Checklist dopo il deploy:
 
 1. Modalità ospite: analisi ZIP, marcatura "Disattivato", ricaricamento pagina → il profilo
    resta marcato (localStorage) e viene escluso dalla nuova analisi.
-2. Registrazione email/password: arrivo email di verifica; login; analisi salvata.
-3. Ricaricamento su un altro browser/dispositivo: storico e profili disattivati presenti.
-4. Eliminazione singola analisi, eliminazione account e dati.
-5. Disattivazione del salvataggio automatico: la nuova analisi non compare nello storico.
-6. Regole Firestore: un utente non può leggere i dati di un altro (verifica con REST/emulator).
+2. Registrazione email/password: arrivo email di verifica; login; attivazione della frase di
+   sicurezza; analisi salvata.
+3. Ricaricamento su un altro browser/dispositivo: sblocco con la frase di sicurezza; storico e
+   profili disattivati presenti.
+4. In console Firebase i documenti di `analyses` e `deactivated` contengono solo `enc` (testo
+   cifrato) e ID opachi: nessuna username in chiaro.
+5. Eliminazione singola analisi, eliminazione account e dati.
+6. Disattivazione del salvataggio automatico: la nuova analisi non compare nello storico.
+7. Regole Firestore: un utente non può leggere i dati di un altro (verifica con REST/emulator).
 
 ## 7. Costi e manutenzione
 
@@ -170,3 +176,49 @@ Nota: per gli utenti autenticati Firestore è la fonte di verità: analisi e pro
 disattivati vengono scritti e riletti dal database, mentre localStorage resta solo una cache
 per l'uso offline. Le modifiche salvate senza rete vengono inviate automaticamente al
 ripristino della connessione (con backoff).
+
+## 10. Cifratura zero-knowledge
+
+Analisi e profili disattivati non vengono mai scritti in chiaro su Firestore. La cifratura è
+interamente lato client (Web Crypto API) e non richiede servizi aggiuntivi.
+
+### Schema
+
+| Elemento | Dove | Contenuto |
+| --- | --- | --- |
+| `users/{uid}.keyVault` | Firestore | `{v, kdf, iterations, salt, iv, wrappedKey}`: DEK avvolta con la KEK derivata dalla frase di sicurezza |
+| `users/{uid}/analyses/{id}` | Firestore | `{createdAt, enc}` |
+| `users/{uid}/analyses/{id}/items/chunk-NNN` | Firestore | `{enc}` (array di username cifrato) |
+| `users/{uid}/deactivated/{docId}` | Firestore | `{enc}` con `docId = HMAC-SHA256(username)` |
+
+Algoritmi: AES-GCM 256 con IV casuale per valore; PBKDF2-SHA256 con 310.000 iterazioni per la
+KEK; HKDF-SHA256 per la chiave di deduplicazione. Dettagli e trade-off in
+`docs/adr/ADR-002-zero-knowledge-cifratura.md`.
+
+### Flusso utente
+
+1. Dopo il login l'app chiede di **attivare la cifratura** (frase di sicurezza di almeno 12
+   caratteri, diversa dalla password) oppure di **sbloccare** i dati esistenti.
+2. La chiave sbloccata resta sul dispositivo in IndexedDB come `CryptoKey` non estraibile;
+   "Blocca i dati" la rimuove.
+3. Finché i dati sono bloccati non viene letto né scritto nulla di sensibile sul database: le
+   analisi restano locali e vengono accodate.
+
+### Deploy delle regole
+
+Le regole aggiornate vanno pubblicate perché i nuovi payload `{enc}` siano accettati:
+
+```bash
+firebase deploy --only firestore:rules --project igfollowertracking-v2
+```
+
+Le regole continuano a consentire la **lettura/eliminazione** dei documenti legacy in chiaro
+(scritture nuove solo nel formato cifrato). La migrazione automatica avviene al primo sync con
+chiave sbloccata.
+
+### Limiti accettati
+
+- Se la frase di sicurezza viene persa, i dati cifrati sono **irrecuperabili**: nessuno,
+  nemmeno l'amministratore, possiede la chiave.
+- Restano leggibili i metadati minimi: email/nome del profilo, data dell'analisi, ID e numero
+  dei documenti.

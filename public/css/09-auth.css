@@ -739,3 +739,35 @@ body.igft-modal-open {
         justify-content: center;
     }
 }
+
+/* ===================== CIFRATURA (ZERO-KNOWLEDGE) ===================== */
+
+.igft-vault {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(160deg, rgba(225, 48, 108, .10), rgba(193, 53, 132, .04));
+}
+
+.igft-vault__title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--ig-grad-start), var(--ig-grad-mid), var(--ig-grad-end));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.igft-vault .igft-muted {
+    margin: 0 0 10px;
+    font-size: .92rem;
+}
+
+.igft-vault .igft-alert {
+    margin-bottom: 10px;
+}
+
+.igft-vault .igft-actions {
+    margin-top: 8px;
+}
